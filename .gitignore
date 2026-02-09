@@ -1,0 +1,37 @@
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
+
+# RPM build artifacts
+rpm/BUILD/
+rpm/RPMS/
+rpm/SRPMS/
+rpm/SOURCES/
+rpm/BUILDROOT/
+*.rpm
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+.uv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (never commit)
+*.pem
+*.key
+secrets/
+.env
