@@ -1,0 +1,24 @@
+# Dockerfile.build — Local RPM build environment for FreeRADIUS
+#
+# Usage (native arch):
+#   docker build -f docker/Dockerfile.build -t freeradius-builder .
+#   docker run --rm -v $(pwd)/output:/output freeradius-builder
+#
+# Usage (cross-arch via buildx):
+#   docker buildx build --platform linux/arm64 -f docker/Dockerfile.build -t freeradius-builder-arm64 .
+#   docker run --rm --platform linux/arm64 -v $(pwd)/output:/output freeradius-builder-arm64
+#
+# The built RPMs are copied to /output inside the container.
+
+FROM amazonlinux:2023
+
+COPY rpm/ /build/rpm/
+
+RUN chmod +x /build/rpm/build.sh
+
+# Build the RPM and copy results to /output on run
+CMD /build/rpm/build.sh && \
+    mkdir -p /output && \
+    cp -v ~/rpmbuild/RPMS/*/*.rpm /output/ && \
+    cp -v ~/rpmbuild/SRPMS/*.rpm /output/ && \
+    echo "==> RPMs copied to /output"
