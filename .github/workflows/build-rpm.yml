@@ -68,14 +68,14 @@ jobs:
           path: ./rpms
 
       - name: List downloaded RPMs
-        run: find ./rpms -name '*.rpm' -type f | sort
+        run: ls -lhR ./rpms
 
       - name: Install core RPMs
         run: |
-          dnf install -y ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-3*.rpm \
-                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-config-*.rpm \
-                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-utils-*.rpm \
-                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-sqlite-*.rpm
+          dnf install -y ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-3.2*.rpm \
+                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-config-3*.rpm \
+                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-utils-3*.rpm \
+                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-sqlite-3*.rpm
 
       - name: Verify radiusd version
         run: radiusd -v
