@@ -54,17 +54,19 @@
 
 ## ADR-004: RPM Delivery to EC2
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2025-02-09
+**Updated:** 2026-02-10
 
 **Context:** Need to get the built RPM artifact from GHA to the EC2 instance.
 
-**Decision:** TBD — evaluate during Phase 4. Candidates:
-1. SCP from GHA runner to EC2
-2. Upload to S3, pull from EC2
-3. Private yum repo in S3
+**Decision:** Upload RPMs to a dedicated S3 bucket from GHA, pull from EC2 using IAM instance profile (Option 2).
 
-**Considerations:**
-- Option 2 (S3) is simplest and most AWS-native
-- Option 3 (yum repo) is most realistic for production patterns
-- Option 1 (SCP) requires SSH key management in GHA
+**Rationale:**
+- Simplest and most AWS-native approach
+- No SSH keys or SCP required — aligns with SSM-only access model
+- GHA uploads via OIDC/IAM credentials; EC2 pulls via instance profile
+- S3 bucket is Terraform-managed with versioning, encryption, and 30-day lifecycle
+- Private yum repo (Option 3) adds complexity not warranted for a lab environment
+
+**Implementation:** `terraform/s3.tf` creates `freeradius-lab-rpms-<ACCOUNT_ID>` bucket. EC2 instance role has `s3:GetObject` and `s3:ListBucket` access.
