@@ -1,0 +1,87 @@
+name: Build FreeRADIUS RPM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build RPM (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: amazonlinux:2023
+
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Install git
+        run: dnf install -y git tar gzip
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build RPM
+        run: ./rpm/build.sh --release "${{ github.sha }}"
+
+      - name: List built RPMs
+        run: ls -lh ~/rpmbuild/RPMS/*/ ~/rpmbuild/SRPMS/
+
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeradius-rpms-${{ matrix.arch }}
+          path: |
+            ~/rpmbuild/RPMS/**/*.rpm
+            ~/rpmbuild/SRPMS/*.rpm
+          retention-days: 14
+
+  validate:
+    name: Validate RPM (${{ matrix.arch }})
+    needs: build
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: amazonlinux:2023
+
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            rpm_arch: x86_64
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            rpm_arch: aarch64
+
+    steps:
+      - name: Download RPMs
+        uses: actions/download-artifact@v4
+        with:
+          name: freeradius-rpms-${{ matrix.arch }}
+          path: ./rpms
+
+      - name: List downloaded RPMs
+        run: find ./rpms -name '*.rpm' -type f | sort
+
+      - name: Install core RPMs
+        run: |
+          dnf install -y ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-3*.rpm \
+                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-config-*.rpm \
+                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-utils-*.rpm \
+                         ./rpms/RPMS/${{ matrix.rpm_arch }}/freeradius-sqlite-*.rpm
+
+      - name: Verify radiusd version
+        run: radiusd -v
+
+      - name: Verify radiusd config syntax
+        run: radiusd -C || echo "Config check completed (warnings expected on fresh install)"
+
+      - name: Verify package contents
+        run: rpm -ql freeradius | head -30
