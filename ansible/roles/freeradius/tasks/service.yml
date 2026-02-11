@@ -5,12 +5,14 @@
     state: started
     enabled: true
 
-- name: Wait for RADIUS auth port
-  ansible.builtin.wait_for:
-    port: 1812
-    timeout: 30
+- name: Verify radiusd is listening on UDP ports
+  ansible.builtin.command: ss -ulnp sport = :1812 or sport = :1813
+  register: radius_ports
+  changed_when: false
+  retries: 5
+  delay: 2
+  until: "'1812' in radius_ports.stdout and '1813' in radius_ports.stdout"
 
-- name: Wait for RADIUS acct port
-  ansible.builtin.wait_for:
-    port: 1813
-    timeout: 30
+- name: Show listening ports
+  ansible.builtin.debug:
+    var: radius_ports.stdout_lines
