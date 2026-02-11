@@ -23,20 +23,20 @@ Working backwards, ~2 weeks of evening/weekend effort.
 
 ### Tasks
 
-- [ ] Read FreeRADIUS docs: architecture, module system, configuration hierarchy
-- [ ] Understand RADIUS packet types:
+- [x] Read FreeRADIUS docs: architecture, module system, configuration hierarchy
+- [x] Understand RADIUS packet types:
   - `Access-Request` / `Access-Accept` / `Access-Reject`
   - `Accounting-Request` (Start/Stop/Interim-Update)
   - `Acct-Status-Type`, `Acct-Session-Time`, `Acct-Session-Id`
-- [ ] Run FreeRADIUS in Docker (official `freeradius/freeradius-server` image)
+- [x] Run FreeRADIUS in Docker (official `freeradius/freeradius-server` image)
   - Start in debug mode: `radiusd -X`
   - Test with `radtest`: `radtest testuser testpass localhost 0 testing123`
-- [ ] Explore key config files:
+- [x] Explore key config files:
   - `radiusd.conf` — main config
   - `clients.conf` — NAS/client definitions
   - `mods-enabled/` — module configs (sql, eap, etc.)
   - `sites-enabled/` — virtual servers (default, inner-tunnel)
-- [ ] Document learnings in `docs/RADIUS_NOTES.md`
+- [x] Document learnings in `docs/RADIUS_NOTES.md`
 
 ### Key Concepts to Internalize
 
@@ -48,7 +48,7 @@ Working backwards, ~2 weeks of evening/weekend effort.
 
 ### Deliverables
 
-- `docker/Dockerfile.test` — local FreeRADIUS for experimentation
+- ~~`docker/Dockerfile.test`~~ — skipped; `docker/Dockerfile.build` serves both build and local experimentation needs
 - `docs/RADIUS_NOTES.md` — personal reference notes
 
 ---
@@ -59,22 +59,22 @@ Working backwards, ~2 weeks of evening/weekend effort.
 
 ### Tasks
 
-- [ ] Review FreeRADIUS source repo: https://github.com/FreeRADIUS/freeradius-server
+- [x] Review FreeRADIUS source repo: https://github.com/FreeRADIUS/freeradius-server
   - Identify the stable release branch (3.2.x for production, 3.0.x is legacy)
   - Review existing `redhat/` directory in source — they ship a spec file
-- [ ] Create build environment:
+- [x] Create build environment:
   - `docker/Dockerfile.build` based on `amazonlinux:2023`
   - Install build deps: `gcc`, `make`, `rpm-build`, `openssl-devel`, `postgresql-devel`, etc.
-- [ ] Write or adapt RPM spec file (`rpm/freeradius.spec`):
+- [x] Write or adapt RPM spec file (`rpm/freeradius.spec`):
   - Source: download tarball from GitHub release
   - `%prep` — unpack and patch if needed
   - `%build` — `./configure` with appropriate flags + `make`
   - `%install` — `make install DESTDIR=%{buildroot}`
   - `%files` — package the right files
   - Subpackages: consider `freeradius-sql`, `freeradius-utils`
-- [ ] Build with `rpmbuild` inside the container
-- [ ] Write `rpm/build.sh` helper script to orchestrate the build
-- [ ] Validate: install the RPM on a clean AL2023 container and run `radiusd -X`
+- [x] Build with `rpmbuild` inside the container
+- [x] Write `rpm/build.sh` helper script to orchestrate the build
+- [x] Validate: install the RPM on a clean AL2023 container and run `radiusd -X`
 
 ### Decision Points
 
@@ -97,18 +97,18 @@ Working backwards, ~2 weeks of evening/weekend effort.
 
 ### Tasks
 
-- [ ] Create `.github/workflows/build-rpm.yml`:
+- [x] Create `.github/workflows/build-rpm.yml`:
   - Trigger: push to `main`, PR, manual `workflow_dispatch`
   - Job: spin up AL2023 container, install deps, run `rpm/build.sh`
   - Upload RPM as GHA artifact
-- [ ] Consider caching:
+- [x] Consider caching:
   - Cache build dependencies (`dnf` packages)
   - Cache source tarball download
-- [ ] Add basic validation step:
+- [x] Add basic validation step:
   - Install the built RPM on a clean container
   - Run `radiusd -v` to verify it starts
   - `rpm -qlp` to verify package contents
-- [ ] Version the RPM:
+- [x] Version the RPM:
   - Use git tag or short SHA for release field
   - `freeradius-3.2.x-1.lab.$(git rev-parse --short HEAD).x86_64.rpm`
 
@@ -158,23 +158,23 @@ jobs:
 
 ### Tasks
 
-- [ ] Design the environment:
+- [x] Design the environment:
   - VPC with public subnet (keep it simple for lab)
   - EC2 instance (AL2023 AMI, t3.micro) for FreeRADIUS
   - Security group: allow UDP 1812/1813 from test runner, SSH from your IP
   - Optional: RDS PostgreSQL (t3.micro) for SQL backend — or start with SQLite
-- [ ] Write Terraform modules:
+- [x] Write Terraform modules:
   - `terraform/vpc.tf` — VPC, subnet, IGW, route table
   - `terraform/security_groups.tf` — RADIUS + SSH + RDS access rules
   - `terraform/ec2.tf` — AL2023 instance with user_data for initial setup
   - `terraform/rds.tf` — PostgreSQL instance (optional, can add in Phase 5)
   - `terraform/outputs.tf` — instance IP, RDS endpoint
   - `terraform/variables.tf` — region, instance type, key pair, CIDR blocks
-- [ ] State management:
+- [x] State management:
   - S3 backend + DynamoDB lock table (standard pattern)
   - Or keep it simple with local state for the lab
-- [ ] User data script: install RPM, basic config, start radiusd
-- [ ] Test: `terraform plan` → `terraform apply` → verify SSH + radtest → `terraform destroy`
+- [x] User data script: install RPM, basic config, start radiusd
+- [x] Test: `terraform plan` → `terraform apply` → verify SSH + radtest → `terraform destroy`
 
 ### Decision Points
 
@@ -196,25 +196,20 @@ jobs:
 
 ### Tasks
 
-- [ ] Create `.github/workflows/deploy-test.yml`:
-  - Trigger: `workflow_dispatch` (manual), optionally on PR to `main`
-  - **Job 1: Build** — reuse or call the build-rpm workflow
-  - **Job 2: Deploy** — `terraform apply`, upload RPM to EC2 via SCP/SSM, install, configure
-  - **Job 3: Test** — run smoke tests + Python test suite against the live instance
+- [x] Create `.github/workflows/deploy-test.yml`:
+  - Trigger: `workflow_dispatch` (manual)
+  - **Job 1: Build** — reuse the build-rpm workflow
+  - **Job 2: Deploy** — `terraform apply`, Ansible deploy via SSM (no SSH)
+  - **Job 3: Test** — Ansible smoke test playbook against the live instance
   - **Job 4: Teardown** — `terraform destroy` (always runs, even on test failure)
-- [ ] Create `.github/workflows/destroy.yml`:
+- [x] Create `.github/workflows/destroy.yml`:
   - Manual workflow to nuke the environment if something gets stuck
-- [ ] GHA secrets/variables needed:
-  - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or OIDC role)
-  - `SSH_PRIVATE_KEY` for EC2 access
-  - Consider using AWS SSM Session Manager instead of SSH (more realistic)
-- [ ] Handle RPM deployment to EC2:
-  - Option A: SCP the artifact + `dnf localinstall`
-  - Option B: Upload to S3, pull from EC2 user_data
-  - Option C: Build a private yum repo in S3 (most realistic, good learning)
-- [ ] Configure FreeRADIUS post-deploy:
-  - `scripts/configure_radius.sh` — set up SQL module, test users, clients
-  - `scripts/seed_test_data.sh` — insert test users/NAS entries
+- [x] GHA auth: OIDC (`vars.AWS_ROLE_ARN`) — no static AWS keys or SSH keys needed
+- [x] Handle RPM deployment to EC2:
+  - Option B chosen: Upload to S3, pull from EC2 via Ansible
+- [x] Configure FreeRADIUS post-deploy:
+  - Ansible role `freeradius` — install RPM, configure RADIUS, manage service
+  - Ansible role `smoke_test` — validate deployment with radtest
 
 ### Pipeline Design
 
@@ -222,17 +217,15 @@ jobs:
 workflow_dispatch
   │
   ├─► build-rpm (reusable workflow)
-  │     └─► artifact: freeradius RPM
+  │     └─► artifact: freeradius RPM → S3
   │
   ├─► deploy (needs: build-rpm)
   │     ├─► terraform init + apply
-  │     ├─► upload RPM to EC2
-  │     ├─► install + configure FreeRADIUS
-  │     └─► output: instance IP
+  │     ├─► Ansible deploy playbook via SSM
+  │     └─► output: instance ID
   │
   ├─► test (needs: deploy)
-  │     ├─► smoke test (radtest)
-  │     ├─► python test suite (pyrad)
+  │     ├─► Ansible smoke test playbook
   │     └─► collect results
   │
   └─► teardown (always, needs: deploy)
@@ -243,8 +236,7 @@ workflow_dispatch
 
 - `.github/workflows/deploy-test.yml`
 - `.github/workflows/destroy.yml`
-- `scripts/configure_radius.sh`
-- `scripts/seed_test_data.sh`
+- `ansible/` — roles (`freeradius`, `smoke_test`), playbooks, and inventory
 - Working end-to-end pipeline
 
 ---
@@ -276,8 +268,7 @@ workflow_dispatch
     - [ ] User gets correct group-based attributes
     - [ ] Rate limiting attributes returned
     - [ ] Custom VSAs (if implemented) returned correctly
-- [ ] Add a `scripts/smoke_test.sh` for quick validation:
-  - Basic `radtest` commands as a fast sanity check before full pytest suite
+- [ ] ~~Add `scripts/smoke_test.sh`~~ — replaced by `ansible/roles/smoke_test/` (done in Phase 4)
 
 ### Run Tracker Data Model
 
@@ -296,7 +287,7 @@ Map running concepts to RADIUS attributes:
 ### Deliverables
 
 - `tests/` directory with passing test suite
-- `scripts/smoke_test.sh`
+- ~~`scripts/smoke_test.sh`~~ — now `ansible/roles/smoke_test/`
 - Documented run tracker data model
 
 ---
@@ -338,6 +329,7 @@ Map running concepts to RADIUS attributes:
 | uv | latest | Python dependency management |
 | pyrad | latest | Python RADIUS client library |
 | radtest | (bundled) | CLI RADIUS testing tool |
+| Ansible + amazon.aws | latest | Configuration management via SSM (no SSH) |
 | Docker | latest | Local build/test environments |
 
 ## References
