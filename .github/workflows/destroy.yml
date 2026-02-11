@@ -1,0 +1,61 @@
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy" to confirm teardown'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: inputs.confirm == 'destroy'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: terraform
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          terraform init \
+            -backend-config="bucket=freeradius-lab-tfstate-${ACCOUNT_ID}" \
+            -backend-config="dynamodb_table=freeradius-lab-tflock"
+
+      - name: Terraform destroy
+        working-directory: terraform
+        run: terraform destroy -auto-approve
+
+      - name: Verify resources destroyed
+        run: |
+          echo "Verifying no EC2 instances remain..."
+          INSTANCES=$(aws ec2 describe-instances \
+            --filters "Name=tag:Project,Values=freeradius-lab" \
+                      "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+            --query "Reservations[].Instances[].InstanceId" --output text)
+          if [ -n "$INSTANCES" ]; then
+            echo "WARNING: Instances still exist: $INSTANCES"
+          else
+            echo "All freeradius-lab instances terminated."
+          fi

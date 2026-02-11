@@ -1,0 +1,302 @@
+name: Deploy & Test FreeRADIUS
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: "Target architecture"
+        required: true
+        default: "x86_64"
+        type: choice
+        options:
+          - x86_64
+      destroy_after_test:
+        description: "Destroy infrastructure after tests complete"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  # ────────────────────────────────────────────────
+  # Job 1: Build RPM for selected architecture
+  # ────────────────────────────────────────────────
+  build:
+    name: Build RPM (${{ inputs.architecture }})
+    runs-on: ubuntu-latest
+    container:
+      image: amazonlinux:2023
+    steps:
+      - name: Install git
+        run: dnf install -y git tar gzip
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build RPM
+        run: ./rpm/build.sh --release "${{ github.sha }}"
+
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: freeradius-rpms-${{ inputs.architecture }}
+          path: ~/rpmbuild/RPMS/**/*.rpm
+          retention-days: 7
+
+  # ────────────────────────────────────────────────
+  # Job 2: Provision infra and deploy FreeRADIUS
+  # ────────────────────────────────────────────────
+  deploy:
+    name: Deploy to AWS
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      instance_id: ${{ steps.tf-output.outputs.instance_id }}
+      public_ip: ${{ steps.tf-output.outputs.public_ip }}
+      rpm_bucket: ${{ steps.tf-output.outputs.rpm_bucket }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: terraform
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          terraform init \
+            -backend-config="bucket=freeradius-lab-tfstate-${ACCOUNT_ID}" \
+            -backend-config="dynamodb_table=freeradius-lab-tflock"
+
+      - name: Terraform apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
+
+      - name: Capture Terraform outputs
+        id: tf-output
+        working-directory: terraform
+        run: |
+          echo "instance_id=$(terraform output -raw freeradius_instance_id)" >> "$GITHUB_OUTPUT"
+          echo "public_ip=$(terraform output -raw freeradius_public_ip)" >> "$GITHUB_OUTPUT"
+          echo "rpm_bucket=$(terraform output -raw rpm_bucket_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: freeradius-rpms-${{ inputs.architecture }}
+          path: ./rpms
+
+      - name: Upload RPMs to S3
+        run: |
+          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
+          ARCH=${{ inputs.architecture }}
+          aws s3 cp ./rpms/ "s3://${BUCKET}/rpms/${ARCH}/" \
+            --recursive --exclude "*-debuginfo-*" --exclude "*-debugsource-*"
+          echo "Uploaded RPMs:"
+          aws s3 ls "s3://${BUCKET}/rpms/${ARCH}/"
+
+      - name: Upload helper scripts to S3
+        run: |
+          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
+          aws s3 cp scripts/ "s3://${BUCKET}/scripts/" --recursive --exclude ".*"
+          echo "Uploaded scripts:"
+          aws s3 ls "s3://${BUCKET}/scripts/"
+
+      - name: Wait for SSM agent
+        run: |
+          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
+          echo "Waiting for SSM agent on ${INSTANCE_ID}..."
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=${INSTANCE_ID}" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || echo "None")
+            if [ "$STATUS" = "Online" ]; then
+              echo "SSM agent is online after ~$((i * 10))s"
+              break
+            fi
+            echo "  Attempt $i/30: status=$STATUS, waiting 10s..."
+            sleep 10
+          done
+          if [ "$STATUS" != "Online" ]; then
+            echo "ERROR: SSM agent did not come online within 5 minutes"
+            exit 1
+          fi
+
+      - name: Wait for user_data to complete
+        run: |
+          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 300 \
+            --parameters 'commands=["cloud-init status --wait || true","echo user_data_ready"]' \
+            --query "Command.CommandId" --output text)
+          echo "Waiting for user_data (command: $COMMAND_ID)..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" --output text
+
+      - name: Install FreeRADIUS via SSM
+        run: |
+          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
+          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
+          ARCH=${{ inputs.architecture }}
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 300 \
+            --parameters commands='[
+              "aws s3 cp s3://'"${BUCKET}"'/scripts/install_radius.sh /tmp/install_radius.sh",
+              "chmod +x /tmp/install_radius.sh",
+              "bash /tmp/install_radius.sh '"${BUCKET}"' '"${ARCH}"'"
+            ]' \
+            --query "Command.CommandId" --output text)
+
+          echo "Installing FreeRADIUS (command: $COMMAND_ID)..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+
+          echo "=== stdout ==="
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" --output text
+          echo "=== stderr ==="
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardErrorContent" --output text
+
+      - name: Configure FreeRADIUS via SSM
+        run: |
+          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
+          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 120 \
+            --parameters commands='[
+              "aws s3 cp s3://'"${BUCKET}"'/scripts/configure_radius.sh /tmp/configure_radius.sh",
+              "chmod +x /tmp/configure_radius.sh",
+              "bash /tmp/configure_radius.sh"
+            ]' \
+            --query "Command.CommandId" --output text)
+
+          echo "Configuring FreeRADIUS (command: $COMMAND_ID)..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+
+          echo "=== stdout ==="
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" --output text
+          echo "=== stderr ==="
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardErrorContent" --output text
+
+  # ────────────────────────────────────────────────
+  # Job 3: Smoke test
+  # ────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke Test
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run smoke test via SSM
+        run: |
+          INSTANCE_ID=${{ needs.deploy.outputs.instance_id }}
+          BUCKET=${{ needs.deploy.outputs.rpm_bucket }}
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 120 \
+            --parameters commands='[
+              "aws s3 cp s3://'"${BUCKET}"'/scripts/smoke_test.sh /tmp/smoke_test.sh",
+              "chmod +x /tmp/smoke_test.sh",
+              "bash /tmp/smoke_test.sh"
+            ]' \
+            --query "Command.CommandId" --output text)
+
+          echo "Running smoke tests (command: $COMMAND_ID)..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "Status" --output text)
+
+          echo "=== stdout ==="
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardOutputContent" --output text
+          echo "=== stderr ==="
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "StandardErrorContent" --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "Smoke test FAILED (status: $STATUS)"
+            exit 1
+          fi
+          echo "Smoke test PASSED"
+
+  # ────────────────────────────────────────────────
+  # Job 4: Teardown (conditional)
+  # ────────────────────────────────────────────────
+  teardown:
+    name: Teardown Infrastructure
+    needs: [deploy, smoke-test]
+    if: always() && inputs.destroy_after_test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform destroy
+        working-directory: terraform
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          terraform init \
+            -backend-config="bucket=freeradius-lab-tfstate-${ACCOUNT_ID}" \
+            -backend-config="dynamodb_table=freeradius-lab-tflock"
+          terraform destroy -auto-approve
