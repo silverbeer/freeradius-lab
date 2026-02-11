@@ -114,7 +114,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install Ansible
-        run: uv pip install --system ansible-core boto3 botocore
+        run: uv tool install ansible-core --with boto3 --with botocore
 
       - name: Install session-manager-plugin
         run: |
@@ -186,7 +186,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install Ansible
-        run: uv pip install --system ansible-core boto3 botocore
+        run: uv tool install ansible-core --with boto3 --with botocore
 
       - name: Install session-manager-plugin
         run: |
@@ -215,11 +215,32 @@ jobs:
             -i ansible/inventory/
 
   # ────────────────────────────────────────────────
-  # Job 4: Teardown (conditional)
+  # Job 4: Integration tests (pytest + pyrad over UDP)
+  # ────────────────────────────────────────────────
+  integration-test:
+    name: Integration Tests
+    needs: [deploy, smoke-test]
+    runs-on: ubuntu-latest
+    env:
+      RADIUS_SERVER: ${{ needs.deploy.outputs.public_ip }}
+      RADIUS_SECRET: testing123
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Run integration tests
+        working-directory: tests
+        run: uv run pytest -v
+
+  # ────────────────────────────────────────────────
+  # Job 5: Teardown (conditional)
   # ────────────────────────────────────────────────
   teardown:
     name: Teardown Infrastructure
-    needs: [deploy, smoke-test]
+    needs: [deploy, smoke-test, integration-test]
     if: always() && inputs.destroy_after_test
     runs-on: ubuntu-latest
     steps:
