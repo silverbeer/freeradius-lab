@@ -12,3 +12,8 @@ output "init_command" {
   description = "Command to initialize the main Terraform config with this backend"
   value       = "terraform init -backend-config=\"bucket=${aws_s3_bucket.tfstate.id}\" -backend-config=\"dynamodb_table=${aws_dynamodb_table.tflock.name}\""
 }
+
+output "gha_role_arn" {
+  description = "IAM role ARN for GitHub Actions (set as vars.AWS_ROLE_ARN in repo settings)"
+  value       = aws_iam_role.github_actions.arn
+}

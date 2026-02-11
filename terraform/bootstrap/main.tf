@@ -19,6 +19,7 @@ locals {
   account_id  = data.aws_caller_identity.current.account_id
   bucket_name = "freeradius-lab-tfstate-${local.account_id}"
   table_name  = "freeradius-lab-tflock"
+  oidc_url    = "token.actions.githubusercontent.com"
 }
 
 # S3 bucket for Terraform state
@@ -73,4 +74,55 @@ resource "aws_dynamodb_table" "tflock" {
     Name    = "freeradius-lab-tflock"
     Project = "freeradius-lab"
   }
+}
+
+# ── GitHub Actions OIDC ──────────────────────────────────────────
+
+# OIDC identity provider for GitHub Actions
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url             = "https://${local.oidc_url}"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+
+  tags = {
+    Name    = "github-actions-oidc"
+    Project = "freeradius-lab"
+  }
+}
+
+# IAM role assumed by GitHub Actions via OIDC
+resource "aws_iam_role" "github_actions" {
+  name = "freeradius-lab-gha-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github_actions.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${local.oidc_url}:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "${local.oidc_url}:sub" = "repo:${var.github_org}/${var.github_repo}:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name    = "freeradius-lab-gha-role"
+    Project = "freeradius-lab"
+  }
+}
+
+# Broad permissions for lab environment — Terraform needs EC2, VPC, S3, IAM, SSM, DynamoDB
+resource "aws_iam_role_policy_attachment" "github_actions_admin" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }

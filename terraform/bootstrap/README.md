@@ -1,6 +1,8 @@
-# Terraform Bootstrap — State Backend
+# Terraform Bootstrap — State Backend & GitHub Actions OIDC
 
-One-time setup to create the S3 bucket and DynamoDB table used as the Terraform remote backend for the main configuration.
+One-time setup to create:
+- S3 bucket + DynamoDB table for Terraform remote state
+- GitHub Actions OIDC provider + IAM role for CI/CD pipelines
 
 ## Prerequisites
 
@@ -18,25 +20,30 @@ terraform apply
 
 ## After Apply
 
-The `init_command` output gives you the exact command to initialize the main Terraform config:
+### 1. Initialize main Terraform config
+
+The `init_command` output gives you the exact command:
 
 ```bash
 cd ../          # back to terraform/
 $(terraform -chdir=bootstrap output -raw init_command)
 ```
 
-Or manually:
+### 2. Set GitHub Actions variable
+
+Copy the `gha_role_arn` output and set it as a repository variable:
+
+1. Go to repo **Settings** > **Secrets and variables** > **Actions** > **Variables**
+2. Create variable `AWS_ROLE_ARN` with the role ARN value
 
 ```bash
-cd ../
-terraform init \
-  -backend-config="bucket=freeradius-lab-tfstate-<ACCOUNT_ID>" \
-  -backend-config="dynamodb_table=freeradius-lab-tflock"
+terraform output -raw gha_role_arn
+# Example: arn:aws:iam::123456789012:role/freeradius-lab-gha-role
 ```
 
 ## Teardown
 
-To destroy the state backend (only after destroying all managed resources):
+To destroy the bootstrap resources (only after destroying all managed infrastructure):
 
 ```bash
 cd terraform/bootstrap
