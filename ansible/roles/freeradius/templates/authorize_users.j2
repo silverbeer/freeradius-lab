@@ -1,0 +1,9 @@
+{% for user in freeradius_test_users %}
+{{ user.username }}  Cleartext-Password := "{{ user.password }}"
+    Reply-Message := "{{ user.reply_message }}",
+    Session-Timeout := {{ user.session_timeout }}
+{%- if user.extra_attrs is defined %}{% for attr in user.extra_attrs %},
+    {{ attr }}
+{%- endfor %}{% endif %}
+
+{% endfor %}

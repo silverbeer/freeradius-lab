@@ -1,0 +1,12 @@
+---
+- name: Deploy FreeRADIUS
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+
+  roles:
+    - freeradius

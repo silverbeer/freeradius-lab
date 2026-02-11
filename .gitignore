@@ -34,6 +34,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Ansible
+ansible/inventory/inventory.aws_ssm.yml
+
 # Secrets (never commit)
 *.pem
 *.key

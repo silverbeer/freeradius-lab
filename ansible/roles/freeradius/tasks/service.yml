@@ -1,0 +1,16 @@
+---
+- name: Enable and start radiusd
+  ansible.builtin.systemd:
+    name: radiusd
+    state: started
+    enabled: true
+
+- name: Wait for RADIUS auth port
+  ansible.builtin.wait_for:
+    port: 1812
+    timeout: 30
+
+- name: Wait for RADIUS acct port
+  ansible.builtin.wait_for:
+    port: 1813
+    timeout: 30

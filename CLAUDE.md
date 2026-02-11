@@ -15,7 +15,8 @@ The use case is a "Run Streak Session Tracker" that maps running sessions to RAD
 - **SQL backend:** SQLite initially, with RDS PostgreSQL as a later enhancement
 - **Infra:** Terraform-provisioned ephemeral AWS environment (VPC, EC2 for FreeRADIUS, optional RDS)
 - **CI/CD:** GitHub Actions pipelines for RPM build, deploy, test, and teardown
-- **Tests:** Python (pytest + pyrad) against a live RADIUS server, plus shell-based smoke tests
+- **Config management:** Ansible with `amazon.aws.aws_ssm` connection plugin (no SSH)
+- **Tests:** Python (pytest + pyrad) against a live RADIUS server, plus Ansible-driven smoke tests
 
 ## Key Technology Choices
 
@@ -26,6 +27,7 @@ The use case is a "Run Streak Session Tracker" that maps running sessions to RAD
 | Python >= 3.11 + uv | Test suite dependency management |
 | pyrad | Python RADIUS client library for tests |
 | radtest / radclient | CLI RADIUS testing tools (bundled with FreeRADIUS) |
+| Ansible + amazon.aws | Configuration management via SSM (no SSH) |
 
 ## Common Commands
 
@@ -46,9 +48,6 @@ terraform destroy
 
 ### Testing
 ```bash
-# Smoke test (quick radtest validation)
-scripts/smoke_test.sh
-
 # Python test suite (run from repo root)
 cd tests && uv run pytest
 
@@ -73,7 +72,7 @@ radtest testuser testpass localhost 0 testing123   # Test auth
 - `rpm/` — RPM spec file and build helper script
 - `docker/` — Dockerfiles for build (AL2023) and local test environments
 - `terraform/` — AWS infrastructure (VPC, EC2, security groups, optional RDS)
-- `scripts/` — Post-deploy configuration, test data seeding, smoke tests
+- `ansible/` — Ansible roles (freeradius, smoke_test), playbooks, and config
 - `tests/` — Python test suite (pytest + pyrad) with `pyproject.toml`
 - `.github/workflows/` — CI pipelines: `build-rpm.yml`, `deploy-test.yml`, `destroy.yml`
 
@@ -83,7 +82,8 @@ ADRs are tracked in `docs/DECISIONS.md`. Key decisions:
 - FreeRADIUS 3.2.x over 3.0.x or 4.0 (ADR-001)
 - Amazon Linux 2023 as target platform (ADR-002)
 - SQLite first, PostgreSQL later (ADR-003)
-- RPM delivery to EC2 method TBD (ADR-004)
+- RPM delivery to EC2 via S3 (ADR-004)
+- Ansible over SSM replaces shell scripts (ADR-005)
 
 ## RADIUS Protocol Basics
 

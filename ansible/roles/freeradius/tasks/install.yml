@@ -1,0 +1,32 @@
+---
+- name: Create RPM download directory
+  ansible.builtin.file:
+    path: /tmp/rpms
+    state: directory
+    mode: "0755"
+
+- name: Download RPMs from S3
+  ansible.builtin.command:
+    cmd: aws s3 cp "s3://{{ rpm_bucket }}/rpms/{{ rpm_arch }}/" /tmp/rpms/ --recursive
+  changed_when: true
+
+- name: Find downloaded RPMs
+  ansible.builtin.find:
+    paths: /tmp/rpms
+    patterns: "{{ freeradius_rpm_packages }}"
+  register: rpm_files
+
+- name: Install FreeRADIUS RPMs
+  ansible.builtin.dnf:
+    name: "{{ rpm_files.files | map(attribute='path') | list }}"
+    state: present
+    disable_gpg_check: true
+
+- name: Verify FreeRADIUS installation
+  ansible.builtin.command: radiusd -v
+  changed_when: false
+  register: radiusd_version
+
+- name: Show FreeRADIUS version
+  ansible.builtin.debug:
+    var: radiusd_version.stdout_lines

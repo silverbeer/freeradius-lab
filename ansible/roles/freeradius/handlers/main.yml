@@ -1,0 +1,11 @@
+---
+- name: restart radiusd
+  ansible.builtin.systemd:
+    name: radiusd
+    state: restarted
+    daemon_reload: true
+
+- name: reload radiusd
+  ansible.builtin.systemd:
+    name: radiusd
+    state: reloaded

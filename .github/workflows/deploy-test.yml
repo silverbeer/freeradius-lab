@@ -110,12 +110,32 @@ jobs:
           echo "Uploaded RPMs:"
           aws s3 ls "s3://${BUCKET}/rpms/${ARCH}/"
 
-      - name: Upload helper scripts to S3
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Ansible
+        run: uv pip install --system ansible-core boto3 botocore
+
+      - name: Install session-manager-plugin
         run: |
-          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
-          aws s3 cp scripts/ "s3://${BUCKET}/scripts/" --recursive --exclude ".*"
-          echo "Uploaded scripts:"
-          aws s3 ls "s3://${BUCKET}/scripts/"
+          curl -sL -o /tmp/session-manager-plugin.deb \
+            "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
+          sudo dpkg -i /tmp/session-manager-plugin.deb
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Generate Ansible inventory
+        run: |
+          cat > ansible/inventory/inventory.aws_ssm.yml << EOF
+          all:
+            hosts:
+              freeradius:
+                ansible_host: ${{ steps.tf-output.outputs.instance_id }}
+                ansible_connection: amazon.aws.aws_ssm
+                ansible_aws_ssm_bucket_name: ${{ steps.tf-output.outputs.rpm_bucket }}
+                ansible_aws_ssm_region: ${{ env.AWS_REGION }}
+          EOF
 
       - name: Wait for SSM agent
         run: |
@@ -138,80 +158,12 @@ jobs:
             exit 1
           fi
 
-      - name: Wait for user_data to complete
+      - name: Deploy FreeRADIUS
         run: |
-          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --timeout-seconds 300 \
-            --parameters 'commands=["cloud-init status --wait || true","echo user_data_ready"]' \
-            --query "Command.CommandId" --output text)
-          echo "Waiting for user_data (command: $COMMAND_ID)..."
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" --output text
-
-      - name: Install FreeRADIUS via SSM
-        run: |
-          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
-          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
-          ARCH=${{ inputs.architecture }}
-
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --timeout-seconds 300 \
-            --parameters commands='[
-              "aws s3 cp s3://'"${BUCKET}"'/scripts/install_radius.sh /tmp/install_radius.sh",
-              "chmod +x /tmp/install_radius.sh",
-              "bash /tmp/install_radius.sh '"${BUCKET}"' '"${ARCH}"'"
-            ]' \
-            --query "Command.CommandId" --output text)
-
-          echo "Installing FreeRADIUS (command: $COMMAND_ID)..."
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-
-          echo "=== stdout ==="
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" --output text
-          echo "=== stderr ==="
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardErrorContent" --output text
-
-      - name: Configure FreeRADIUS via SSM
-        run: |
-          INSTANCE_ID=${{ steps.tf-output.outputs.instance_id }}
-          BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
-
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --timeout-seconds 120 \
-            --parameters commands='[
-              "aws s3 cp s3://'"${BUCKET}"'/scripts/configure_radius.sh /tmp/configure_radius.sh",
-              "chmod +x /tmp/configure_radius.sh",
-              "bash /tmp/configure_radius.sh"
-            ]' \
-            --query "Command.CommandId" --output text)
-
-          echo "Configuring FreeRADIUS (command: $COMMAND_ID)..."
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-
-          echo "=== stdout ==="
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" --output text
-          echo "=== stderr ==="
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardErrorContent" --output text
+          ansible-playbook ansible/playbooks/deploy.yml \
+            -i ansible/inventory/ \
+            -e rpm_bucket=${{ steps.tf-output.outputs.rpm_bucket }} \
+            -e rpm_arch=${{ inputs.architecture }}
 
   # ────────────────────────────────────────────────
   # Job 3: Smoke test
@@ -230,44 +182,37 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Run smoke test via SSM
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Ansible
+        run: uv pip install --system ansible-core boto3 botocore
+
+      - name: Install session-manager-plugin
         run: |
-          INSTANCE_ID=${{ needs.deploy.outputs.instance_id }}
-          BUCKET=${{ needs.deploy.outputs.rpm_bucket }}
+          curl -sL -o /tmp/session-manager-plugin.deb \
+            "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
+          sudo dpkg -i /tmp/session-manager-plugin.deb
 
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --timeout-seconds 120 \
-            --parameters commands='[
-              "aws s3 cp s3://'"${BUCKET}"'/scripts/smoke_test.sh /tmp/smoke_test.sh",
-              "chmod +x /tmp/smoke_test.sh",
-              "bash /tmp/smoke_test.sh"
-            ]' \
-            --query "Command.CommandId" --output text)
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
 
-          echo "Running smoke tests (command: $COMMAND_ID)..."
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
+      - name: Generate Ansible inventory
+        run: |
+          cat > ansible/inventory/inventory.aws_ssm.yml << EOF
+          all:
+            hosts:
+              freeradius:
+                ansible_host: ${{ needs.deploy.outputs.instance_id }}
+                ansible_connection: amazon.aws.aws_ssm
+                ansible_aws_ssm_bucket_name: ${{ needs.deploy.outputs.rpm_bucket }}
+                ansible_aws_ssm_region: ${{ env.AWS_REGION }}
+          EOF
 
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "Status" --output text)
-
-          echo "=== stdout ==="
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardOutputContent" --output text
-          echo "=== stderr ==="
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-            --query "StandardErrorContent" --output text
-
-          if [ "$STATUS" != "Success" ]; then
-            echo "Smoke test FAILED (status: $STATUS)"
-            exit 1
-          fi
-          echo "Smoke test PASSED"
+      - name: Run smoke tests
+        run: |
+          ansible-playbook ansible/playbooks/smoke_test.yml \
+            -i ansible/inventory/
 
   # ────────────────────────────────────────────────
   # Job 4: Teardown (conditional)

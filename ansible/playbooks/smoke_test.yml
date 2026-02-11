@@ -1,0 +1,7 @@
+---
+- name: Smoke Test FreeRADIUS
+  hosts: all
+  become: true
+
+  roles:
+    - smoke_test

@@ -1,0 +1,9 @@
+---
+- name: Install FreeRADIUS
+  ansible.builtin.include_tasks: install.yml
+
+- name: Configure FreeRADIUS
+  ansible.builtin.include_tasks: configure.yml
+
+- name: Start FreeRADIUS service
+  ansible.builtin.include_tasks: service.yml

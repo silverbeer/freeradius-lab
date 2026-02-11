@@ -121,8 +121,61 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# Broad permissions for lab environment — Terraform needs EC2, VPC, S3, IAM, SSM, DynamoDB
-resource "aws_iam_role_policy_attachment" "github_actions_admin" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+# Scoped permissions — EC2/VPC, S3, IAM, SSM, DynamoDB, STS
+resource "aws_iam_role_policy" "github_actions" {
+  name = "freeradius-lab-gha-policy"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "EC2VPC"
+        Effect   = "Allow"
+        Action   = ["ec2:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "S3"
+        Effect = "Allow"
+        Action = ["s3:*"]
+        Resource = [
+          "arn:aws:s3:::freeradius-lab-*",
+          "arn:aws:s3:::freeradius-lab-*/*"
+        ]
+      },
+      {
+        Sid      = "IAM"
+        Effect   = "Allow"
+        Action   = ["iam:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "SSM"
+        Effect = "Allow"
+        Action = [
+          "ssm:SendCommand",
+          "ssm:GetCommandInvocation",
+          "ssm:DescribeInstanceInformation",
+          "ssm:GetParameter",
+          "ssm:StartSession",
+          "ssm:TerminateSession",
+          "ssm:ResumeSession"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid      = "DynamoDB"
+        Effect   = "Allow"
+        Action   = ["dynamodb:*"]
+        Resource = "arn:aws:dynamodb:*:*:table/freeradius-lab-*"
+      },
+      {
+        Sid      = "STS"
+        Effect   = "Allow"
+        Action   = ["sts:GetCallerIdentity"]
+        Resource = "*"
+      }
+    ]
+  })
 }

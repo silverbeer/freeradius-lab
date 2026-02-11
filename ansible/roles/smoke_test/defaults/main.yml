@@ -1,0 +1,22 @@
+---
+smoke_test_cases:
+  - name: Valid user authenticates
+    user: testrunner
+    pass: run123
+    expect: Access-Accept
+
+  - name: Wrong password rejected
+    user: testrunner
+    pass: wrongpass
+    expect: Access-Reject
+
+  - name: Unknown user rejected
+    user: nosuchuser
+    pass: anything
+    expect: Access-Reject
+
+smoke_test_ports:
+  - port: 1812
+    name: auth
+  - port: 1813
+    name: acct

@@ -1,0 +1,32 @@
+---
+- name: "radtest: {{ item.name }}"
+  ansible.builtin.command:
+    cmd: radtest {{ item.user }} {{ item.pass }} 127.0.0.1 0 testing123
+  register: radtest_results
+  loop: "{{ smoke_test_cases }}"
+  changed_when: false
+  failed_when: false
+
+- name: "Verify: {{ item.item.name }}"
+  ansible.builtin.assert:
+    that:
+      - item.item.expect in item.stdout
+    fail_msg: "FAIL: {{ item.item.name }} — expected {{ item.item.expect }}, got: {{ item.stdout }}"
+    success_msg: "PASS: {{ item.item.name }}"
+  loop: "{{ radtest_results.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Check RADIUS ports
+  ansible.builtin.command:
+    cmd: ss -ulnp
+  register: ss_output
+  changed_when: false
+
+- name: "Verify port {{ item.port }} ({{ item.name }}) is listening"
+  ansible.builtin.assert:
+    that:
+      - "ss_output.stdout is search(':' ~ (item.port | string) ~ '\\s')"
+    fail_msg: "FAIL: Port {{ item.port }} ({{ item.name }}) is NOT listening"
+    success_msg: "PASS: Port {{ item.port }} ({{ item.name }}) is listening"
+  loop: "{{ smoke_test_ports }}"
