@@ -1,0 +1,25 @@
+---
+- name: Add NAS clients to clients.conf
+  ansible.builtin.blockinfile:
+    path: "{{ freeradius_raddb }}/clients.conf"
+    marker: "# {mark} ANSIBLE MANAGED - {{ item.name }}"
+    block: |
+      client {{ item.name }} {
+          ipaddr          = {{ item.ipaddr }}
+          secret          = {{ item.secret }}
+          shortname       = {{ item.shortname }}
+          nastype         = {{ item.nastype }}
+      }
+  loop: "{{ freeradius_nas_clients }}"
+  notify: restart radiusd
+
+- name: Add test users to authorize file
+  ansible.builtin.blockinfile:
+    path: "{{ freeradius_raddb }}/mods-config/files/authorize"
+    marker: "# {mark} ANSIBLE MANAGED - lab test users"
+    block: "{{ lookup('template', 'authorize_users.j2') }}"
+  notify: restart radiusd
+
+- name: Verify FreeRADIUS configuration syntax
+  ansible.builtin.command: radiusd -C
+  changed_when: false

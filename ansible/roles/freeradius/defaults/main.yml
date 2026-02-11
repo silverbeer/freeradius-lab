@@ -1,0 +1,27 @@
+---
+freeradius_raddb: /etc/raddb
+
+freeradius_rpm_packages:
+  - "freeradius-3.2*.rpm"
+  - "freeradius-config-3*.rpm"
+  - "freeradius-utils-3*.rpm"
+  - "freeradius-sqlite-3*.rpm"
+
+freeradius_test_users:
+  - username: testrunner
+    password: run123
+    reply_message: "Welcome, runner!"
+    session_timeout: 3600
+  - username: eliterunner
+    password: elite456
+    reply_message: "Welcome, elite runner!"
+    session_timeout: 7200
+    extra_attrs:
+      - "Framed-Protocol := PPP"
+
+freeradius_nas_clients:
+  - name: lab-test-client
+    ipaddr: "0.0.0.0/0"
+    secret: testing123
+    shortname: lab-test
+    nastype: other

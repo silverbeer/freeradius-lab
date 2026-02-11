@@ -70,3 +70,29 @@
 - Private yum repo (Option 3) adds complexity not warranted for a lab environment
 
 **Implementation:** `terraform/s3.tf` creates `freeradius-lab-rpms-<ACCOUNT_ID>` bucket. EC2 instance role has `s3:GetObject` and `s3:ListBucket` access.
+
+---
+
+## ADR-005: Replace SSM send-command with Ansible
+
+**Status:** Accepted
+**Date:** 2026-02-11
+
+**Context:** The deploy pipeline used `aws ssm send-command` to run shell scripts on EC2. This approach was fragile — shell escaping issues, opaque error output, and no idempotency. Configuration management is a relevant skill to demonstrate.
+
+**Decision:** Replace SSM send-command with Ansible, using the `amazon.aws.aws_ssm` connection plugin.
+
+**Rationale:**
+- **Idempotency** — `blockinfile`, `systemd`, `dnf` modules are idempotent by design; re-runs produce "ok" not duplicates
+- **No SSH required** — SSM connection plugin reuses existing SSM agent + IAM setup, no key management
+- **Structured output** — Each task reports ok/changed/failed vs parsing shell exit codes
+- **Data-driven** — Users, NAS clients, and test cases defined as YAML variables; adding a test = adding a YAML entry
+- **Role-based structure** — Two roles (`freeradius`, `smoke_test`) with defaults, handlers, templates follow Ansible best practices
+- **Handlers** — `restart radiusd` only fires when config actually changes
+
+**Trade-offs:**
+- Adds Ansible as a dependency (ansible-core, boto3, session-manager-plugin installed in GHA)
+- `amazon.aws.aws_ssm` connection is slower than SSH (~2-3s overhead per task for session setup)
+- For a lab environment, the reliability and clarity improvements outweigh the speed cost
+
+**Implementation:** `ansible/` directory with roles, playbooks, and dynamic inventory generated from Terraform outputs in GHA.
