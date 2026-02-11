@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build RPM
-        run: ./rpm/build.sh --release "${{ github.sha }}"
+        run: ./rpm/build.sh --release "${GITHUB_SHA::7}"
 
       - name: Upload RPMs
         uses: actions/upload-artifact@v4
