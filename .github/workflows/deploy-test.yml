@@ -102,12 +102,20 @@ jobs:
           name: freeradius-rpms-${{ inputs.architecture }}
           path: ./rpms
 
+      - name: Flatten RPM directory
+        run: |
+          # download-artifact preserves rpmbuild's x86_64/ subdirectory;
+          # flatten so all .rpm files sit directly under ./rpms/
+          find ./rpms -name '*.rpm' -exec mv -t ./rpms/ {} +
+          find ./rpms -mindepth 1 -type d -delete
+          echo "RPMs to upload:" && ls -1 ./rpms/
+
       - name: Upload RPMs to S3
         run: |
           BUCKET=${{ steps.tf-output.outputs.rpm_bucket }}
           ARCH=${{ inputs.architecture }}
-          aws s3 cp ./rpms/ "s3://${BUCKET}/rpms/${ARCH}/" \
-            --recursive --exclude "*-debuginfo-*" --exclude "*-debugsource-*"
+          aws s3 sync ./rpms/ "s3://${BUCKET}/rpms/${ARCH}/" \
+            --delete --exclude "*-debuginfo-*" --exclude "*-debugsource-*"
           echo "Uploaded RPMs:"
           aws s3 ls "s3://${BUCKET}/rpms/${ARCH}/"
 
