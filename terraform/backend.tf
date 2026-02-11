@@ -5,6 +5,6 @@ terraform {
     #     -backend-config="bucket=freeradius-lab-tfstate-<ACCOUNT_ID>" \
     #     -backend-config="dynamodb_table=freeradius-lab-tflock"
     key    = "freeradius-lab/terraform.tfstate"
-    region = "us-west-2"
+    region = "us-east-2"
   }
 }
