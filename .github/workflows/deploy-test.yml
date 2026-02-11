@@ -114,7 +114,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install Ansible
-        run: uv pip install --system ansible-core boto3 botocore
+        run: uv tool install ansible-core --with boto3 --with botocore
 
       - name: Install session-manager-plugin
         run: |
@@ -186,7 +186,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install Ansible
-        run: uv pip install --system ansible-core boto3 botocore
+        run: uv tool install ansible-core --with boto3 --with botocore
 
       - name: Install session-manager-plugin
         run: |
