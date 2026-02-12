@@ -3,8 +3,8 @@
 # Handles failure gracefully — emits error JSON and exits 0 so Vector
 # does not apply exponential backoff.
 
-OUTPUT=$(echo "Message-Authenticator = 0x00" \
-  | radclient -r 1 -t 2 127.0.0.1:{{ vector_status_server_port }} status {{ vector_status_server_secret }} 2>&1)
+OUTPUT=$(printf 'Message-Authenticator = 0x00\nFreeRADIUS-Statistics-Type = 15\n' \
+  | radclient -x -r 1 -t 2 127.0.0.1:{{ vector_status_server_port }} status {{ vector_status_server_secret }} 2>&1)
 
 if [ $? -ne 0 ]; then
   echo '{"error":"radclient failed","detail":"'"$(echo "$OUTPUT" | tr '"' "'")"'"}'

@@ -26,7 +26,7 @@ sources:
       - disk
       - filesystem
       - network
-      - loadavg
+      - load
 
   journald:
     type: journald
@@ -151,7 +151,7 @@ transforms:
           environment: "{{ vector_environment }}"
           instance: "{{ vector_instance }}"
       - type: gauge
-        field: auth_duplicated_requests
+        field: auth_duplicate_requests
         name: freeradius_status_auth_duplicated_total
         tags:
           environment: "{{ vector_environment }}"
@@ -185,7 +185,7 @@ transforms:
       .instance = "{{ vector_instance }}"
       .source = "radius_log"
       # Drop debug-level noise to reduce Loki ingestion cost
-      if contains(string!(.message), "Debug:") ?? false {
+      if contains(string!(.message), "Debug:") {
           abort
       }
 
@@ -215,6 +215,8 @@ sinks:
       strategy: basic
       user: "{{ vector_grafana_user }}"
       password: "{{ vector_grafana_api_key }}"
+    healthcheck:
+      enabled: false
 
   grafana_logs:
     type: loki
@@ -227,6 +229,8 @@ sinks:
       strategy: basic
       user: "{{ vector_grafana_user }}"
       password: "{{ vector_grafana_api_key }}"
+    healthcheck:
+      enabled: false
     labels:
       source: "{{ '{{ source }}' }}"
       environment: "{{ vector_environment }}"

@@ -107,5 +107,5 @@
   notify: restart radiusd
 
 - name: Verify FreeRADIUS configuration syntax
-  ansible.builtin.command: radiusd -C
+  ansible.builtin.command: /usr/sbin/radiusd -C
   changed_when: false
