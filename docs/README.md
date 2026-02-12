@@ -49,7 +49,9 @@ freeradius-lab/
 ├── docs/
 │   ├── PROJECT_PLAN.md          # Phased implementation plan
 │   ├── RADIUS_NOTES.md          # Learning notes on RADIUS/AAA
-│   └── DECISIONS.md             # ADRs / design decisions
+│   ├── DECISIONS.md             # ADRs / design decisions
+│   ├── OBSERVABILITY_PLAN.md    # Observability roadmap (Vector + Grafana Cloud)
+│   └── OBSERVABILITY.md         # Observability implementation reference
 ├── rpm/
 │   ├── freeradius.spec          # RPM spec file
 │   └── build.sh                 # RPM build helper script

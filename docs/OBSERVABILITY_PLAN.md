@@ -27,7 +27,9 @@ EC2 Instance
 
 ---
 
-## Phase 1: FreeRADIUS Structured Logging + Status-Server
+## Phase 1: FreeRADIUS Structured Logging + Status-Server -- COMPLETE
+
+**Status:** Implemented (2026-02-12) — see [OBSERVABILITY.md](OBSERVABILITY.md) for full reference.
 
 **Goal:** Get per-request JSON logs and aggregate counters flowing to files on disk.
 
