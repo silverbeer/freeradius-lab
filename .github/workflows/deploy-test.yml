@@ -27,6 +27,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
+  ANSIBLE_CONFIG: ansible/ansible.cfg
 
 jobs:
   # ────────────────────────────────────────────────

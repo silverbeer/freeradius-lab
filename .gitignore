@@ -42,3 +42,4 @@ ansible/inventory/inventory.aws_ssm.yml
 *.key
 secrets/
 .env
+.gh-secrets
