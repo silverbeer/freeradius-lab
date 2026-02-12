@@ -23,7 +23,7 @@
     disable_gpg_check: true
 
 - name: Verify FreeRADIUS installation
-  ansible.builtin.command: radiusd -v
+  ansible.builtin.command: /usr/sbin/radiusd -v
   changed_when: false
   register: radiusd_version
 
