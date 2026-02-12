@@ -10,3 +10,5 @@
 
   roles:
     - freeradius
+    - role: vector
+      when: vector_enabled | default(false) | bool

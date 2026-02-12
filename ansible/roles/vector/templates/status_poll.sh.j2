@@ -1,0 +1,31 @@
+#!/bin/bash
+# Polls FreeRADIUS Status-Server and outputs JSON for Vector exec source.
+# Handles failure gracefully — emits error JSON and exits 0 so Vector
+# does not apply exponential backoff.
+
+OUTPUT=$(echo "Message-Authenticator = 0x00" \
+  | radclient -r 1 -t 2 127.0.0.1:{{ vector_status_server_port }} status {{ vector_status_server_secret }} 2>&1)
+
+if [ $? -ne 0 ]; then
+  echo '{"error":"radclient failed","detail":"'"$(echo "$OUTPUT" | tr '"' "'")"'"}'
+  exit 0
+fi
+
+# Parse radclient response into JSON key-value pairs
+# Example line: "FreeRADIUS-Total-Access-Requests = 42"
+echo "$OUTPUT" | awk '
+BEGIN { printf "{" ; sep="" }
+/^[[:space:]]*FreeRADIUS-Total-/ {
+    gsub(/^[[:space:]]+/, "")
+    split($0, parts, " = ")
+    key = parts[1]
+    val = parts[2]
+    # Normalise key: FreeRADIUS-Total-Access-Requests → access_requests
+    gsub(/^FreeRADIUS-Total-/, "", key)
+    gsub(/-/, "_", key)
+    key = tolower(key)
+    printf "%s\"%s\":%s", sep, key, val
+    sep = ","
+}
+END { print "}" }
+'

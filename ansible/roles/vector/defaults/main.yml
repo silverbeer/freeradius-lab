@@ -1,0 +1,24 @@
+---
+# Feature toggle — role is a no-op when false
+vector_enabled: false
+
+# Vector version
+vector_version: "0.43.1-1"
+
+# Grafana Cloud credentials (must be overridden via -e)
+vector_grafana_prometheus_url: ""
+vector_grafana_loki_url: ""
+vector_grafana_user: ""
+vector_grafana_api_key: ""
+
+# Log file paths (must match freeradius role defaults)
+vector_linelog_path: /var/log/radius/linelog.json
+vector_radius_log_path: /var/log/radius/radius.log
+
+# Status-Server polling config (must match freeradius role defaults)
+vector_status_server_port: 18121
+vector_status_server_secret: adminsecret
+
+# Labels added to all telemetry
+vector_environment: lab
+vector_instance: "{{ inventory_hostname }}"

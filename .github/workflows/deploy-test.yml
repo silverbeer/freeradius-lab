@@ -15,6 +15,11 @@ on:
         required: true
         default: true
         type: boolean
+      enable_observability:
+        description: "Deploy Vector agent for Grafana Cloud observability"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -160,10 +165,17 @@ jobs:
 
       - name: Deploy FreeRADIUS
         run: |
+          EXTRA_VARS="-e rpm_bucket=${{ steps.tf-output.outputs.rpm_bucket }} -e rpm_arch=${{ inputs.architecture }}"
+          if [ "${{ inputs.enable_observability }}" = "true" ]; then
+            EXTRA_VARS="$EXTRA_VARS -e vector_enabled=true"
+            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_prometheus_url=${{ secrets.GRAFANA_PROMETHEUS_URL }}"
+            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_loki_url=${{ secrets.GRAFANA_LOKI_URL }}"
+            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_user=${{ secrets.GRAFANA_USER }}"
+            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_api_key=${{ secrets.GRAFANA_API_KEY }}"
+          fi
           ansible-playbook ansible/playbooks/deploy.yml \
             -i ansible/inventory/ \
-            -e rpm_bucket=${{ steps.tf-output.outputs.rpm_bucket }} \
-            -e rpm_arch=${{ inputs.architecture }}
+            $EXTRA_VARS
 
   # ────────────────────────────────────────────────
   # Job 3: Smoke test

@@ -1,0 +1,40 @@
+---
+- name: Assert Grafana Cloud credentials are set
+  ansible.builtin.assert:
+    that:
+      - vector_grafana_prometheus_url | length > 0
+      - vector_grafana_loki_url | length > 0
+      - vector_grafana_user | length > 0
+      - vector_grafana_api_key | length > 0
+    fail_msg: >-
+      Grafana Cloud credentials are required when vector_enabled=true.
+      Pass them via -e (vector_grafana_prometheus_url, vector_grafana_loki_url,
+      vector_grafana_user, vector_grafana_api_key).
+
+- name: Add vector user to radiusd group
+  ansible.builtin.user:
+    name: vector
+    groups: radiusd
+    append: true
+  notify: restart vector
+
+- name: Deploy Status-Server polling script
+  ansible.builtin.template:
+    src: status_poll.sh.j2
+    dest: /usr/local/bin/radius-status-poll.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy Vector pipeline config
+  ansible.builtin.template:
+    src: vector.yaml.j2
+    dest: /etc/vector/vector.yaml
+    owner: vector
+    group: vector
+    mode: "0640"
+  notify: restart vector
+
+- name: Validate Vector configuration
+  ansible.builtin.command: vector validate /etc/vector/vector.yaml
+  changed_when: false

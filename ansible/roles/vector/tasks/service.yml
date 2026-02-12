@@ -1,0 +1,11 @@
+---
+- name: Enable and start Vector
+  ansible.builtin.systemd:
+    name: vector
+    state: started
+    enabled: true
+
+- name: Wait for Vector API health port
+  ansible.builtin.wait_for:
+    port: 8686
+    timeout: 30
