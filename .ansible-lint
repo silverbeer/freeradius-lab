@@ -1,0 +1,8 @@
+---
+profile: production
+
+skip_list:
+  - yaml[line-length]  # FreeRADIUS JSON log lines are long by design
+
+exclude_paths:
+  - ansible/inventory/  # dynamic inventory, gitignored

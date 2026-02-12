@@ -16,7 +16,7 @@
     name: vector
     groups: radiusd
     append: true
-  notify: restart vector
+  notify: Restart vector
 
 - name: Deploy Status-Server polling script
   ansible.builtin.template:
@@ -33,7 +33,7 @@
     owner: vector
     group: vector
     mode: "0640"
-  notify: restart vector
+  notify: Restart vector
 
 - name: Validate Vector configuration
   ansible.builtin.command: vector validate /etc/vector/vector.yaml
