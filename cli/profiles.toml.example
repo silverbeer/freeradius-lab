@@ -1,0 +1,23 @@
+# Named RADIUS server profiles for radcli.
+# Copy this file to profiles.toml and customize as needed:
+#   cp profiles.toml.example profiles.toml
+#
+# Select a profile with:  radcli -P <name> status
+
+[local]
+server = "localhost"
+secret = "testing123"
+auth_port = 1812
+acct_port = 1813
+
+[testenv1]
+server = "10.0.1.50"
+secret = "testenv-secret"
+auth_port = 1812
+acct_port = 1813
+
+[prod]
+server = "radius.prod.internal"
+secret = "prod-secret-here"
+auth_port = 1812
+acct_port = 1813
