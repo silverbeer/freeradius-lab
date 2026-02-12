@@ -1,0 +1,18 @@
+linelog {
+    filename = {{ freeradius_linelog_path }}
+    permissions = 0640
+
+    reference = "messages.%{%{reply:Packet-Type}:-default}"
+
+    messages {
+        Access-Accept = "{\"timestamp\":\"%S\",\"type\":\"auth\",\"result\":\"accept\",\"user\":\"%{User-Name}\",\"nas_ip\":\"%{NAS-IP-Address}\",\"nas_id\":\"%{NAS-Identifier}\",\"calling_station\":\"%{Calling-Station-Id}\",\"service_type\":\"%{Service-Type}\"}"
+
+        Access-Reject = "{\"timestamp\":\"%S\",\"type\":\"auth\",\"result\":\"reject\",\"user\":\"%{User-Name}\",\"nas_ip\":\"%{NAS-IP-Address}\",\"nas_id\":\"%{NAS-Identifier}\",\"calling_station\":\"%{Calling-Station-Id}\",\"module_fail_msg\":\"%{Module-Failure-Message}\"}"
+
+        Access-Challenge = "{\"timestamp\":\"%S\",\"type\":\"auth\",\"result\":\"challenge\",\"user\":\"%{User-Name}\",\"nas_ip\":\"%{NAS-IP-Address}\"}"
+
+        Accounting-Response = "{\"timestamp\":\"%S\",\"type\":\"acct\",\"acct_status\":\"%{Acct-Status-Type}\",\"user\":\"%{User-Name}\",\"session_id\":\"%{Acct-Session-Id}\",\"session_time\":\"%{Acct-Session-Time}\",\"nas_ip\":\"%{NAS-IP-Address}\",\"nas_id\":\"%{NAS-Identifier}\"}"
+
+        default = "{\"timestamp\":\"%S\",\"type\":\"unknown\",\"packet_type\":\"%{reply:Packet-Type}\",\"user\":\"%{User-Name}\"}"
+    }
+}
