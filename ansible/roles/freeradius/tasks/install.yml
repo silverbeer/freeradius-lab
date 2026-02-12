@@ -14,19 +14,19 @@
   ansible.builtin.find:
     paths: /tmp/rpms
     patterns: "{{ freeradius_rpm_packages }}"
-  register: rpm_files
+  register: freeradius_rpm_files
 
 - name: Install FreeRADIUS RPMs
   ansible.builtin.dnf:
-    name: "{{ rpm_files.files | map(attribute='path') | list }}"
+    name: "{{ freeradius_rpm_files.files | map(attribute='path') | list }}"
     state: present
     disable_gpg_check: true
 
 - name: Verify FreeRADIUS installation
   ansible.builtin.command: /usr/sbin/radiusd -v
   changed_when: false
-  register: radiusd_version
+  register: freeradius_radiusd_version
 
 - name: Show FreeRADIUS version
   ansible.builtin.debug:
-    var: radiusd_version.stdout_lines
+    var: freeradius_radiusd_version.stdout_lines

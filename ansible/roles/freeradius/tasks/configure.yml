@@ -11,14 +11,14 @@
           nastype         = {{ item.nastype }}
       }
   loop: "{{ freeradius_nas_clients }}"
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Add test users to authorize file
   ansible.builtin.blockinfile:
     path: "{{ freeradius_raddb }}/mods-config/files/authorize"
     marker: "# {mark} ANSIBLE MANAGED - lab test users"
     block: "{{ lookup('template', 'authorize_users.j2') }}"
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Ensure log directory exists
   ansible.builtin.file:
@@ -35,14 +35,14 @@
     owner: root
     group: radiusd
     mode: "0640"
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Enable linelog module
   ansible.builtin.file:
     src: "{{ freeradius_raddb }}/mods-available/linelog"
     dest: "{{ freeradius_raddb }}/mods-enabled/linelog"
     state: link
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Wire linelog into post-auth
   ansible.builtin.blockinfile:
@@ -51,7 +51,7 @@
     insertafter: "^post-auth {"
     block: |2
               linelog
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Wire linelog into post-auth reject
   ansible.builtin.blockinfile:
@@ -60,7 +60,7 @@
     insertafter: "Post-Auth-Type REJECT {"
     block: |2
               linelog
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Wire linelog into accounting
   ansible.builtin.blockinfile:
@@ -69,7 +69,7 @@
     insertafter: "^accounting {"
     block: |2
               linelog
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Enable status_server in radiusd.conf
   ansible.builtin.lineinfile:
@@ -77,7 +77,7 @@
     regexp: "^#?\\s*status_server\\s*="
     line: "status_server = yes"
   when: freeradius_status_server_enabled
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Enable status virtual server
   ansible.builtin.file:
@@ -85,7 +85,7 @@
     dest: "{{ freeradius_raddb }}/sites-enabled/status"
     state: link
   when: freeradius_status_server_enabled
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Deploy status client config
   ansible.builtin.template:
@@ -95,7 +95,7 @@
     group: radiusd
     mode: "0640"
   when: freeradius_status_server_enabled
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Include status client in clients.conf
   ansible.builtin.blockinfile:
@@ -104,7 +104,7 @@
     block: |
       $INCLUDE {{ freeradius_raddb }}/sites-available/status-client.conf
   when: freeradius_status_server_enabled
-  notify: restart radiusd
+  notify: Restart radiusd
 
 - name: Verify FreeRADIUS configuration syntax
   ansible.builtin.command: /usr/sbin/radiusd -C

@@ -31,10 +31,33 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────
+  # Job 0: Lint Ansible code
+  # ────────────────────────────────────────────────
+  lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install ansible-lint
+        run: uv tool install ansible-lint
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Run ansible-lint
+        run: ansible-lint ansible/
+
+  # ────────────────────────────────────────────────
   # Job 1: Build RPM for selected architecture
   # ────────────────────────────────────────────────
   build:
     name: Build RPM (${{ inputs.architecture }})
+    needs: lint
     runs-on: ubuntu-latest
     container:
       image: amazonlinux:2023

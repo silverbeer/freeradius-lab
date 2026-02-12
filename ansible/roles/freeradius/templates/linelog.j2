@@ -1,6 +1,7 @@
 linelog {
     filename = {{ freeradius_linelog_path }}
     permissions = 0640
+{% raw %}
 
     reference = "messages.%{%{reply:Packet-Type}:-default}"
 
@@ -15,4 +16,5 @@ linelog {
 
         default = "{\"timestamp\":\"%S\",\"type\":\"unknown\",\"packet_type\":\"%{reply:Packet-Type}\",\"user\":\"%{User-Name}\"}"
     }
+{% endraw %}
 }
