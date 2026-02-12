@@ -96,3 +96,34 @@
 - For a lab environment, the reliability and clarity improvements outweigh the speed cost
 
 **Implementation:** `ansible/` directory with roles, playbooks, and dynamic inventory generated from Terraform outputs in GHA.
+
+---
+
+## ADR-006: Observability — Structured Logging + Status-Server (Phase 1)
+
+**Status:** Accepted
+**Date:** 2026-02-12
+
+**Context:** The FreeRADIUS lab has zero observability. Logs only exist on ephemeral EC2 instances and are lost on teardown. There's no structured logging, no metrics collection, and no health endpoint. Debugging requires SSM into the instance and reading raw `radius.log`. The observability strategy needs to be built incrementally — starting with FreeRADIUS-native capabilities that require no external dependencies, then layering on shipping (Vector) and a SaaS backend (Grafana Cloud) in later phases.
+
+**Decision:** Implement two FreeRADIUS-native observability primitives as Phase 1:
+
+1. **`rlm_linelog`** — JSON per-request logging to `/var/log/radius/linelog.json`
+2. **Status-Server (RFC 5997)** — aggregate counters exposed on UDP 18121 (localhost-only)
+
+Defer Vector agent and Grafana Cloud shipping to Phase 2.
+
+**Rationale:**
+- **Zero dependencies** — both are built-in FreeRADIUS modules, no new packages to install or services to manage
+- **Immediately useful** — `tail -f linelog.json | jq .` gives live per-request debugging before any shipping pipeline exists
+- **Machine-readable from day one** — JSON format is ready for Vector ingestion in Phase 2 without format changes
+- **Status-Server is the standard** — RFC 5997 defines it as the health/metrics endpoint for RADIUS servers; `radclient` can query it natively
+- **Low risk** — linelog writes to a file, status_server listens on localhost only; neither affects core auth/acct behavior
+- **Ansible-managed** — all configuration deployed via the existing `freeradius` role with `radiusd -C` syntax validation as a safety net
+
+**Trade-offs:**
+- linelog wiring into `sites-available/default` uses `blockinfile` with `insertafter` regexes that depend on the exact layout of FreeRADIUS 3.2.8's default site config; if upstream changes the format, the regex may not match (mitigated by `radiusd -C` failing the deploy)
+- Status-Server secret (`adminsecret`) is a default in role defaults; fine for a lab but should be overridden via secrets for any shared environment
+- Log rotation is not yet configured; `/var/log/radius/linelog.json` will grow unbounded until Vector or logrotate is added in Phase 2
+
+**Implementation:** See [OBSERVABILITY.md](OBSERVABILITY.md) for full configuration reference and [OBSERVABILITY_PLAN.md](OBSERVABILITY_PLAN.md) for the multi-phase roadmap.
