@@ -25,3 +25,8 @@ freeradius_nas_clients:
     secret: testing123
     shortname: lab-test
     nastype: other
+
+freeradius_linelog_path: /var/log/radius/linelog.json
+freeradius_status_server_enabled: true
+freeradius_status_server_port: 18121
+freeradius_status_server_secret: adminsecret

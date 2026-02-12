@@ -20,6 +20,92 @@
     block: "{{ lookup('template', 'authorize_users.j2') }}"
   notify: restart radiusd
 
+- name: Ensure log directory exists
+  ansible.builtin.file:
+    path: /var/log/radius
+    state: directory
+    owner: radiusd
+    group: radiusd
+    mode: "0750"
+
+- name: Deploy linelog module config
+  ansible.builtin.template:
+    src: linelog.j2
+    dest: "{{ freeradius_raddb }}/mods-available/linelog"
+    owner: root
+    group: radiusd
+    mode: "0640"
+  notify: restart radiusd
+
+- name: Enable linelog module
+  ansible.builtin.file:
+    src: "{{ freeradius_raddb }}/mods-available/linelog"
+    dest: "{{ freeradius_raddb }}/mods-enabled/linelog"
+    state: link
+  notify: restart radiusd
+
+- name: Wire linelog into post-auth
+  ansible.builtin.blockinfile:
+    path: "{{ freeradius_raddb }}/sites-available/default"
+    marker: "# {mark} ANSIBLE MANAGED - linelog post-auth"
+    insertafter: "^post-auth {"
+    block: |2
+              linelog
+  notify: restart radiusd
+
+- name: Wire linelog into post-auth reject
+  ansible.builtin.blockinfile:
+    path: "{{ freeradius_raddb }}/sites-available/default"
+    marker: "# {mark} ANSIBLE MANAGED - linelog post-auth reject"
+    insertafter: "Post-Auth-Type REJECT {"
+    block: |2
+              linelog
+  notify: restart radiusd
+
+- name: Wire linelog into accounting
+  ansible.builtin.blockinfile:
+    path: "{{ freeradius_raddb }}/sites-available/default"
+    marker: "# {mark} ANSIBLE MANAGED - linelog accounting"
+    insertafter: "^accounting {"
+    block: |2
+              linelog
+  notify: restart radiusd
+
+- name: Enable status_server in radiusd.conf
+  ansible.builtin.lineinfile:
+    path: "{{ freeradius_raddb }}/radiusd.conf"
+    regexp: "^#?\\s*status_server\\s*="
+    line: "status_server = yes"
+  when: freeradius_status_server_enabled
+  notify: restart radiusd
+
+- name: Enable status virtual server
+  ansible.builtin.file:
+    src: "{{ freeradius_raddb }}/sites-available/status"
+    dest: "{{ freeradius_raddb }}/sites-enabled/status"
+    state: link
+  when: freeradius_status_server_enabled
+  notify: restart radiusd
+
+- name: Deploy status client config
+  ansible.builtin.template:
+    src: status_client.j2
+    dest: "{{ freeradius_raddb }}/sites-available/status-client.conf"
+    owner: root
+    group: radiusd
+    mode: "0640"
+  when: freeradius_status_server_enabled
+  notify: restart radiusd
+
+- name: Include status client in clients.conf
+  ansible.builtin.blockinfile:
+    path: "{{ freeradius_raddb }}/clients.conf"
+    marker: "# {mark} ANSIBLE MANAGED - status client"
+    block: |
+      $INCLUDE {{ freeradius_raddb }}/sites-available/status-client.conf
+  when: freeradius_status_server_enabled
+  notify: restart radiusd
+
 - name: Verify FreeRADIUS configuration syntax
   ansible.builtin.command: radiusd -C
   changed_when: false
