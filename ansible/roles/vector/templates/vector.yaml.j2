@@ -1,0 +1,235 @@
+# {{ ansible_managed }}
+# Vector pipeline: FreeRADIUS → Grafana Cloud (Mimir + Loki)
+
+# ─────────────────────────────────────────
+# Sources
+# ─────────────────────────────────────────
+sources:
+  radius_linelog:
+    type: file
+    include:
+      - {{ vector_linelog_path }}
+    read_from: beginning
+
+  radius_log:
+    type: file
+    include:
+      - {{ vector_radius_log_path }}
+    read_from: beginning
+
+  host_metrics:
+    type: host_metrics
+    scrape_interval_secs: 15
+    collectors:
+      - cpu
+      - memory
+      - disk
+      - filesystem
+      - network
+      - loadavg
+
+  journald:
+    type: journald
+    include_units:
+      - radiusd
+      - vector
+
+  radius_status:
+    type: exec
+    command:
+      - /usr/local/bin/radius-status-poll.sh
+    mode: scheduled
+    scheduled:
+      exec_interval_secs: 15
+    decoding:
+      codec: json
+
+# ─────────────────────────────────────────
+# Transforms
+# ─────────────────────────────────────────
+transforms:
+  # Parse structured linelog JSON and add labels
+  parse_linelog:
+    type: remap
+    inputs:
+      - radius_linelog
+    source: |
+      . = parse_json!(.message)
+      .environment = "{{ vector_environment }}"
+      .instance = "{{ vector_instance }}"
+      .source = "linelog"
+
+  # Split auth events for metric derivation
+  filter_auth_events:
+    type: filter
+    inputs:
+      - parse_linelog
+    condition:
+      type: vrl
+      source: '.type == "auth"'
+
+  # Split acct events for metric derivation
+  filter_acct_events:
+    type: filter
+    inputs:
+      - parse_linelog
+    condition:
+      type: vrl
+      source: '.type == "acct"'
+
+  # Derive auth counters from auth events
+  derive_auth_metrics:
+    type: log_to_metric
+    inputs:
+      - filter_auth_events
+    metrics:
+      - type: counter
+        field: type
+        name: freeradius_radius_auth_total
+        tags:
+          result: "{{ '{{result}}' }}"
+          user: "{{ '{{user}}' }}"
+          nas_id: "{{ '{{nas_id}}' }}"
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+
+  # Derive acct counters from acct events
+  derive_acct_metrics:
+    type: log_to_metric
+    inputs:
+      - filter_acct_events
+    metrics:
+      - type: counter
+        field: type
+        name: freeradius_radius_acct_total
+        tags:
+          acct_status: "{{ '{{acct_status}}' }}"
+          user: "{{ '{{user}}' }}"
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+
+  # Convert Status-Server counters to Prometheus gauges
+  status_to_metrics:
+    type: log_to_metric
+    inputs:
+      - radius_status
+    metrics:
+      - type: gauge
+        field: access_requests
+        name: freeradius_status_access_requests_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: access_accepts
+        name: freeradius_status_access_accepts_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: access_rejects
+        name: freeradius_status_access_rejects_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: access_challenges
+        name: freeradius_status_access_challenges_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: accounting_requests
+        name: freeradius_status_acct_requests_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: accounting_responses
+        name: freeradius_status_acct_responses_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: auth_duplicated_requests
+        name: freeradius_status_auth_duplicated_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: auth_malformed_requests
+        name: freeradius_status_auth_malformed_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: auth_invalid_requests
+        name: freeradius_status_auth_invalid_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+      - type: gauge
+        field: auth_dropped_requests
+        name: freeradius_status_auth_dropped_total
+        tags:
+          environment: "{{ vector_environment }}"
+          instance: "{{ vector_instance }}"
+
+  # Enrich standard radius.log and filter debug noise
+  enrich_radius_log:
+    type: remap
+    inputs:
+      - radius_log
+    source: |
+      .environment = "{{ vector_environment }}"
+      .instance = "{{ vector_instance }}"
+      .source = "radius_log"
+      # Drop debug-level noise to reduce Loki ingestion cost
+      if contains(string!(.message), "Debug:") ?? false {
+          abort
+      }
+
+  # Enrich journald entries
+  enrich_journald:
+    type: remap
+    inputs:
+      - journald
+    source: |
+      .environment = "{{ vector_environment }}"
+      .instance = "{{ vector_instance }}"
+      .source = "journald"
+
+# ─────────────────────────────────────────
+# Sinks
+# ─────────────────────────────────────────
+sinks:
+  grafana_metrics:
+    type: prometheus_remote_write
+    inputs:
+      - derive_auth_metrics
+      - derive_acct_metrics
+      - status_to_metrics
+      - host_metrics
+    endpoint: "{{ vector_grafana_prometheus_url }}"
+    auth:
+      strategy: basic
+      user: "{{ vector_grafana_user }}"
+      password: "{{ vector_grafana_api_key }}"
+
+  grafana_logs:
+    type: loki
+    inputs:
+      - parse_linelog
+      - enrich_radius_log
+      - enrich_journald
+    endpoint: "{{ vector_grafana_loki_url }}"
+    auth:
+      strategy: basic
+      user: "{{ vector_grafana_user }}"
+      password: "{{ vector_grafana_api_key }}"
+    labels:
+      source: "{{ '{{ source }}' }}"
+      environment: "{{ vector_environment }}"
+      instance: "{{ vector_instance }}"
+    encoding:
+      codec: json

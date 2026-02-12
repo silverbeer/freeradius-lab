@@ -1,0 +1,23 @@
+---
+- name: Add Vector yum repository
+  ansible.builtin.yum_repository:
+    name: timber-vector
+    description: Vector - An observability data pipeline
+    baseurl: https://yum.vector.dev/stable/vector-0/$basearch/
+    gpgcheck: true
+    gpgkey: https://yum.vector.dev/DATADOG_RPM_KEY_CURRENT.public
+    enabled: true
+
+- name: Install Vector
+  ansible.builtin.dnf:
+    name: "vector-{{ vector_version }}"
+    state: present
+
+- name: Verify Vector installation
+  ansible.builtin.command: vector --version
+  changed_when: false
+  register: vector_version_output
+
+- name: Show Vector version
+  ansible.builtin.debug:
+    var: vector_version_output.stdout_lines
