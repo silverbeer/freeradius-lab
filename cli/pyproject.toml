@@ -1,0 +1,18 @@
+[project]
+name = "radcli"
+version = "0.1.0"
+description = "Typer/Rich CLI for ad-hoc FreeRADIUS testing"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.15",
+    "rich>=13.0",
+    "pyrad>=2.4",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+radcli = "radcli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
