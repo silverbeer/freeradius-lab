@@ -1,0 +1,26 @@
+---
+- name: Configure FreeRADIUS (Docker)
+  hosts: all
+  become: true
+
+  roles:
+    - role: freeradius
+      vars:
+        freeradius_docker_mode: true
+
+  post_tasks:
+    - name: Restart container to apply config changes
+      ansible.builtin.command: docker restart freeradius-lab
+      delegate_to: localhost
+      become: false
+      changed_when: true
+
+    - name: Verify FreeRADIUS is running after restart
+      ansible.builtin.command: docker exec freeradius-lab radiusd -C
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      retries: 3
+      delay: 2
+      register: _radiusd_check
+      until: _radiusd_check.rc == 0

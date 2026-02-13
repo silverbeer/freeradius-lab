@@ -1,0 +1,6 @@
+all:
+  hosts:
+    freeradius:
+      ansible_host: freeradius-lab
+      ansible_connection: community.docker.docker
+      ansible_become: false

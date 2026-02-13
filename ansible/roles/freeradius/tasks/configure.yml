@@ -87,25 +87,6 @@
   when: freeradius_status_server_enabled
   notify: Restart radiusd
 
-- name: Deploy status client config
-  ansible.builtin.template:
-    src: status_client.j2
-    dest: "{{ freeradius_raddb }}/sites-available/status-client.conf"
-    owner: root
-    group: radiusd
-    mode: "0640"
-  when: freeradius_status_server_enabled
-  notify: Restart radiusd
-
-- name: Include status client in clients.conf
-  ansible.builtin.blockinfile:
-    path: "{{ freeradius_raddb }}/clients.conf"
-    marker: "# {mark} ANSIBLE MANAGED - status client"
-    block: |
-      $INCLUDE {{ freeradius_raddb }}/sites-available/status-client.conf
-  when: freeradius_status_server_enabled
-  notify: Restart radiusd
-
 - name: Verify FreeRADIUS configuration syntax
   ansible.builtin.command: /usr/sbin/radiusd -C
   changed_when: false
