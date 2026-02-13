@@ -17,10 +17,10 @@
   register: freeradius_rpm_files
 
 - name: Install FreeRADIUS RPMs
-  ansible.builtin.dnf:
-    name: "{{ freeradius_rpm_files.files | map(attribute='path') | list }}"
-    state: present
-    disable_gpg_check: true
+  ansible.builtin.shell: |
+    dnf install -y --nogpgcheck {{ freeradius_rpm_files.files | map(attribute='path') | join(' ') }}
+  register: freeradius_dnf_result
+  changed_when: "'Nothing to do' not in freeradius_dnf_result.stdout"
 
 - name: Verify FreeRADIUS installation
   ansible.builtin.command: /usr/sbin/radiusd -v
