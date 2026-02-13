@@ -1,4 +1,7 @@
 ---
+- name: Flush handlers (restart Vector if config changed)
+  ansible.builtin.meta: flush_handlers
+
 - name: Enable and start Vector
   ansible.builtin.systemd:
     name: vector
