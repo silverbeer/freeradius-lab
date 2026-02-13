@@ -4,8 +4,10 @@
     name: radiusd
     state: restarted
     daemon_reload: true
+  when: not (freeradius_docker_mode | default(false))
 
 - name: Reload radiusd
   ansible.builtin.systemd:
     name: radiusd
     state: reloaded
+  when: not (freeradius_docker_mode | default(false))

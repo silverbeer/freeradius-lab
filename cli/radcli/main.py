@@ -49,11 +49,12 @@ def main(
 
 
 # Register subcommands
-from radcli.commands import auth, acct, authz, status  # noqa: E402
+from radcli.commands import auth, acct, authz, health, status  # noqa: E402
 from radcli.commands.profile import profile_app  # noqa: E402
 
 app.command(name="auth")(auth.auth)
 app.command(name="acct")(acct.acct)
 app.command(name="authz")(authz.authz)
+app.command(name="health")(health.health)
 app.command(name="status")(status.status)
 app.add_typer(profile_app, name="profile")
