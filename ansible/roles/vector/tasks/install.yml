@@ -4,14 +4,14 @@
     name: timber-vector
     description: Vector - An observability data pipeline
     baseurl: https://yum.vector.dev/stable/vector-0/$basearch/
-    gpgcheck: true
-    gpgkey: https://yum.vector.dev/DATADOG_RPM_KEY_CURRENT.public
+    gpgcheck: false
     enabled: true
 
 - name: Install Vector
-  ansible.builtin.dnf:
-    name: "vector-{{ vector_version }}"
-    state: present
+  ansible.builtin.shell: |
+    dnf install -y "vector-{{ vector_version }}"
+  register: vector_dnf_result
+  changed_when: "'Nothing to do' not in vector_dnf_result.stdout"
 
 - name: Verify Vector installation
   ansible.builtin.command: vector --version

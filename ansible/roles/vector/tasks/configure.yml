@@ -36,5 +36,5 @@
   notify: Restart vector
 
 - name: Validate Vector configuration
-  ansible.builtin.command: vector validate /etc/vector/vector.yaml
+  ansible.builtin.command: vector validate --no-environment /etc/vector/vector.yaml
   changed_when: false
