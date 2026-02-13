@@ -12,9 +12,12 @@ if [ ! -f "$SECRETS_FILE" ]; then
 fi
 
 ERRORS=0
-while IFS='=' read -r key value; do
+while IFS= read -r line; do
   # Skip blank lines and comments
-  [[ -z "$key" || "$key" =~ ^# ]] && continue
+  [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+  key="${line%%=*}"
+  value="${line#*=}"
 
   if [ -z "$value" ]; then
     echo "Warning: $key is empty, skipping"

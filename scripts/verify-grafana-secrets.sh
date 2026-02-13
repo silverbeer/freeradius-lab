@@ -11,9 +11,11 @@ if [ ! -f "$SECRETS_FILE" ]; then
   exit 1
 fi
 
-# Source the secrets
-while IFS='=' read -r key value; do
-  [[ -z "$key" || "$key" =~ ^# ]] && continue
+# Source the secrets (use first = as delimiter to handle base64 values with =)
+while IFS= read -r line; do
+  [[ -z "$line" || "$line" =~ ^# ]] && continue
+  key="${line%%=*}"
+  value="${line#*=}"
   declare "$key=$value"
 done < "$SECRETS_FILE"
 
@@ -41,32 +43,45 @@ echo "Loki User       : $GRAFANA_LOKI_USER"
 echo "API Key         : ${GRAFANA_API_KEY:0:10}..."
 echo ""
 
-# --- Test Prometheus (remote write endpoint) ---
-PROM_BASE=$(echo "$GRAFANA_PROMETHEUS_URL" | sed 's|/api/prom/push||')
-echo -n "Testing Prometheus ($PROM_BASE)... "
+# --- Test Prometheus (write access via remote write endpoint) ---
+echo -n "Testing Prometheus write (${GRAFANA_PROMETHEUS_URL})... "
 HTTP_CODE=$(curl -s -o /tmp/grafana-prom-test.txt -w '%{http_code}' \
+  -X POST \
   -u "${GRAFANA_PROMETHEUS_USER}:${GRAFANA_API_KEY}" \
-  "${PROM_BASE}/api/prom/api/v1/labels" 2>&1)
-if [ "$HTTP_CODE" = "200" ]; then
-  echo "OK (HTTP $HTTP_CODE)"
+  -H "Content-Type: application/x-protobuf" \
+  -d '' \
+  "${GRAFANA_PROMETHEUS_URL}" 2>&1)
+# 400 = auth works but empty payload rejected (expected); 401/403 = bad creds
+if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "200" ]; then
+  echo "OK (HTTP $HTTP_CODE — write access confirmed)"
 else
   echo "FAIL (HTTP $HTTP_CODE)"
   cat /tmp/grafana-prom-test.txt 2>/dev/null
   echo ""
+  if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+    echo "  -> Token lacks metrics:write scope"
+  fi
   ERRORS=1
 fi
 
-# --- Test Loki ---
-echo -n "Testing Loki ($GRAFANA_LOKI_URL)... "
+# --- Test Loki (write access via push endpoint) ---
+echo -n "Testing Loki write (${GRAFANA_LOKI_URL})... "
 HTTP_CODE=$(curl -s -o /tmp/grafana-loki-test.txt -w '%{http_code}' \
+  -X POST \
   -u "${GRAFANA_LOKI_USER}:${GRAFANA_API_KEY}" \
-  "${GRAFANA_LOKI_URL}/loki/api/v1/labels" 2>&1)
-if [ "$HTTP_CODE" = "200" ]; then
-  echo "OK (HTTP $HTTP_CODE)"
+  -H "Content-Type: application/json" \
+  -d '{"streams":[]}' \
+  "${GRAFANA_LOKI_URL}/loki/api/v1/push" 2>&1)
+# 204 = accepted; 400 = auth works but bad payload; 401/403 = bad creds
+if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "400" ]; then
+  echo "OK (HTTP $HTTP_CODE — write access confirmed)"
 else
   echo "FAIL (HTTP $HTTP_CODE)"
   cat /tmp/grafana-loki-test.txt 2>/dev/null
   echo ""
+  if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+    echo "  -> Token lacks logs:write scope"
+  fi
   ERRORS=1
 fi
 
