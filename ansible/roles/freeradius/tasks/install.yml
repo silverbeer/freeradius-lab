@@ -14,21 +14,18 @@
     cmd: |
       set -o pipefail
       aws s3 cp "s3://{{ rpm_bucket }}/rpms/{{ rpm_arch }}/" /tmp/rpms/ \
-      --recursive --exclude "*debuginfo*" --exclude "*debugsource*"
-    # S3 may contain RPMs from multiple builds — keep only the latest version of each package
-    cd /tmp/rpms
-    # Flatten any subdirectories
-    find . -mindepth 2 -name '*.rpm' -exec mv {} . \;
-    find . -type d -empty -delete
-    # For each base package name, keep only the newest RPM file
-    for pkg in freeradius freeradius-config freeradius-utils freeradius-sqlite; do
-      latest=$(ls -t ${pkg}-3*.rpm 2>/dev/null | head -1)
-      if [ -n "$latest" ]; then
-        ls ${pkg}-3*.rpm | grep -v "^${latest}$" | xargs -r rm -f
-      fi
-    done
-    echo "RPMs to install:"
-    ls -1 *.rpm
+        --recursive --exclude "*debuginfo*" --exclude "*debugsource*"
+      cd /tmp/rpms
+      find . -mindepth 2 -name '*.rpm' -exec mv {} . \;
+      find . -type d -empty -delete
+      for pkg in freeradius freeradius-config freeradius-utils freeradius-sqlite; do
+        latest=$(ls -t ${pkg}-3*.rpm 2>/dev/null | head -1)
+        if [ -n "$latest" ]; then
+          ls ${pkg}-3*.rpm | grep -v "^${latest}$" | xargs -r rm -f
+        fi
+      done
+      echo "RPMs to install:"
+      ls -1 *.rpm
   changed_when: true
 
 - name: Find downloaded RPMs
