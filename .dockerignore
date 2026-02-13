@@ -1,0 +1,14 @@
+# Only rpm/ and docker/ are needed for the build.
+# Exclude everything else to minimize build context.
+.git
+.github
+ansible/
+terraform/
+tests/
+cli/
+docs/
+scripts/
+*.md
+.env
+.gh-secrets
+docker-compose.yml

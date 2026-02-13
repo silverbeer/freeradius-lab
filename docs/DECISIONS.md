@@ -127,3 +127,27 @@ Defer Vector agent and Grafana Cloud shipping to Phase 2.
 - Log rotation is not yet configured; `/var/log/radius/linelog.json` will grow unbounded until Vector or logrotate is added in Phase 2
 
 **Implementation:** See [OBSERVABILITY.md](OBSERVABILITY.md) for full configuration reference and [OBSERVABILITY_PLAN.md](OBSERVABILITY_PLAN.md) for the multi-phase roadmap.
+
+---
+
+## ADR-007: Container Registry — ghcr.io
+
+**Status:** Accepted
+**Date:** 2026-02-13
+
+**Context:** The multi-stage Dockerfile produces a runnable FreeRADIUS runtime image. Currently it only builds locally via `docker compose build`. We need a registry to publish built images so they can be pulled without building from source.
+
+**Decision:** Push images to GitHub Container Registry (ghcr.io) via a dedicated CI workflow, rather than Amazon ECR or Docker Hub.
+
+**Rationale:**
+- **Zero cost** — ghcr.io is free for public packages
+- **Zero extra secrets** — `GITHUB_TOKEN` has `packages:write` natively; no IAM credentials or Docker Hub tokens to manage
+- **Co-located with source** — images appear in the repo's Packages tab, linked to commits
+- **Standard tooling** — `docker/login-action`, `docker/build-push-action`, and `docker/metadata-action` are the canonical GHA actions for container CI
+
+**Trade-offs:**
+- ECR would keep everything in AWS, closer to the EC2 deployment target; but adds cost (free tier is 500 MB) and requires IAM credentials in GHA
+- Docker Hub has broader public reach but requires a separate account and access token secret
+- ghcr.io packages default to private; must be manually set to public after first push
+
+**Implementation:** `.github/workflows/docker-image.yml` builds on push to main, tags with short SHA + `latest`, and pushes to `ghcr.io/silverbeer/freeradius-lab`.
