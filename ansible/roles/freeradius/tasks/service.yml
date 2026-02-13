@@ -28,3 +28,11 @@
   retries: 3
   delay: 5
   when: freeradius_status_server_enabled
+
+- name: Fix radius log file ownership for Vector
+  ansible.builtin.file:
+    path: /var/log/radius/radius.log
+    owner: radiusd
+    group: radiusd
+    mode: "0640"
+  when: vector_enabled | default(false) | bool
