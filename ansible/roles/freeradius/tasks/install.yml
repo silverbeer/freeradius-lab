@@ -10,8 +10,10 @@
   changed_when: true
 
 - name: Download RPMs from S3
-  ansible.builtin.shell: |
-    aws s3 cp "s3://{{ rpm_bucket }}/rpms/{{ rpm_arch }}/" /tmp/rpms/ \
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      aws s3 cp "s3://{{ rpm_bucket }}/rpms/{{ rpm_arch }}/" /tmp/rpms/ \
       --recursive --exclude "*debuginfo*" --exclude "*debugsource*"
     # S3 may contain RPMs from multiple builds — keep only the latest version of each package
     cd /tmp/rpms

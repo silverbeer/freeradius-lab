@@ -10,16 +10,20 @@
   changed_when: false
 
 - name: Verify RADIUS ports are listening
-  ansible.builtin.shell: |
-    ss -ulnp | grep -q ':1812 ' && echo "auth ok" || exit 1
-    ss -ulnp | grep -q ':1813 ' && echo "acct ok" || exit 1
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      ss -ulnp | grep -q ':1812 ' && echo "auth ok" || exit 1
+      ss -ulnp | grep -q ':1813 ' && echo "acct ok" || exit 1
   changed_when: false
   retries: 3
   delay: 5
 
 - name: Verify Status-Server port is listening
-  ansible.builtin.shell: |
-    ss -ulnp | grep -q ':{{ freeradius_status_server_port }} ' && echo "status ok" || exit 1
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      ss -ulnp | grep -q ':{{ freeradius_status_server_port }} ' && echo "status ok" || exit 1
   changed_when: false
   retries: 3
   delay: 5
