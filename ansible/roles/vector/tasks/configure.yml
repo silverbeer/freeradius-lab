@@ -3,13 +3,14 @@
   ansible.builtin.assert:
     that:
       - vector_grafana_prometheus_url | length > 0
+      - vector_grafana_prometheus_user | length > 0
       - vector_grafana_loki_url | length > 0
-      - vector_grafana_user | length > 0
+      - vector_grafana_loki_user | length > 0
       - vector_grafana_api_key | length > 0
     fail_msg: >-
       Grafana Cloud credentials are required when vector_enabled=true.
-      Pass them via -e (vector_grafana_prometheus_url, vector_grafana_loki_url,
-      vector_grafana_user, vector_grafana_api_key).
+      Pass them via -e (vector_grafana_prometheus_url, vector_grafana_prometheus_user,
+      vector_grafana_loki_url, vector_grafana_loki_user, vector_grafana_api_key).
 
 - name: Add vector user to radiusd group
   ansible.builtin.user:

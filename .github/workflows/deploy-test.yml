@@ -193,8 +193,9 @@ jobs:
           if [ "${{ inputs.enable_observability }}" = "true" ]; then
             EXTRA_VARS="$EXTRA_VARS -e vector_enabled=true"
             EXTRA_VARS="$EXTRA_VARS -e vector_grafana_prometheus_url=${{ secrets.GRAFANA_PROMETHEUS_URL }}"
+            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_prometheus_user=${{ secrets.GRAFANA_PROMETHEUS_USER }}"
             EXTRA_VARS="$EXTRA_VARS -e vector_grafana_loki_url=${{ secrets.GRAFANA_LOKI_URL }}"
-            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_user=${{ secrets.GRAFANA_USER }}"
+            EXTRA_VARS="$EXTRA_VARS -e vector_grafana_loki_user=${{ secrets.GRAFANA_LOKI_USER }}"
             EXTRA_VARS="$EXTRA_VARS -e vector_grafana_api_key=${{ secrets.GRAFANA_API_KEY }}"
           fi
           ansible-playbook ansible/playbooks/deploy.yml \

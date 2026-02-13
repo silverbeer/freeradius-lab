@@ -216,7 +216,7 @@ sinks:
     endpoint: "{{ vector_grafana_prometheus_url }}"
     auth:
       strategy: basic
-      user: "{{ vector_grafana_user }}"
+      user: "{{ vector_grafana_prometheus_user }}"
       password: "{{ vector_grafana_api_key }}"
     healthcheck:
       enabled: false
@@ -230,7 +230,7 @@ sinks:
     endpoint: "{{ vector_grafana_loki_url }}"
     auth:
       strategy: basic
-      user: "{{ vector_grafana_user }}"
+      user: "{{ vector_grafana_loki_user }}"
       password: "{{ vector_grafana_api_key }}"
     healthcheck:
       enabled: false

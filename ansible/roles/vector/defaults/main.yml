@@ -7,8 +7,9 @@ vector_version: "0.43.1-1"
 
 # Grafana Cloud credentials (must be overridden via -e)
 vector_grafana_prometheus_url: ""  # e.g. https://prometheus-prod-XX.grafana.net/api/prom/push
+vector_grafana_prometheus_user: ""
 vector_grafana_loki_url: ""  # base URL only, e.g. https://logs-prod-XX.grafana.net (no /loki/api/v1/push)
-vector_grafana_user: ""
+vector_grafana_loki_user: ""
 vector_grafana_api_key: ""
 
 # Log file paths (must match freeradius role defaults)
