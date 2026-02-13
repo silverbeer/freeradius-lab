@@ -5,7 +5,16 @@
 
   pre_tasks:
     - name: Wait for cloud-init to finish
-      ansible.builtin.command: cloud-init status --wait
+      ansible.builtin.shell: |
+        for i in $(seq 1 60); do
+          if [ -f /var/lib/cloud/instance/boot-finished ]; then
+            echo "cloud-init finished"
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "Timed out waiting for cloud-init"
+        exit 1
       changed_when: false
 
   roles:
