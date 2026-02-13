@@ -198,7 +198,7 @@ jobs:
             EXTRA_VARS="$EXTRA_VARS -e vector_grafana_api_key=${{ secrets.GRAFANA_API_KEY }}"
           fi
           ansible-playbook ansible/playbooks/deploy.yml \
-            -i ansible/inventory/ \
+            -i ansible/inventory/inventory.aws_ssm.yml \
             $EXTRA_VARS
 
   # ────────────────────────────────────────────────
@@ -248,7 +248,7 @@ jobs:
       - name: Run smoke tests
         run: |
           ansible-playbook ansible/playbooks/smoke_test.yml \
-            -i ansible/inventory/
+            -i ansible/inventory/inventory.aws_ssm.yml
 
   # ────────────────────────────────────────────────
   # Job 4: Integration tests (pytest + pyrad over UDP)
