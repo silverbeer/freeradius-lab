@@ -14,7 +14,17 @@
   ansible.builtin.find:
     paths: /tmp/rpms
     patterns: "{{ freeradius_rpm_packages }}"
+    recurse: true
   register: freeradius_rpm_files
+
+- name: Show discovered RPMs
+  ansible.builtin.debug:
+    msg: "{{ freeradius_rpm_files.files | map(attribute='path') | list }}"
+
+- name: Fail if no RPMs found
+  ansible.builtin.fail:
+    msg: "No RPMs matched patterns {{ freeradius_rpm_packages }} under /tmp/rpms/"
+  when: freeradius_rpm_files.matched == 0
 
 - name: Install FreeRADIUS RPMs
   ansible.builtin.dnf:
