@@ -10,7 +10,7 @@ resource "grafana_rule_group" "freeradius_metric_alerts" {
 
     data {
       ref_id         = "A"
-      datasource_uid = data.grafana_data_source.prometheus.uid
+      datasource_uid = var.prometheus_uid
 
       relative_time_range {
         from = 300
@@ -26,7 +26,7 @@ resource "grafana_rule_group" "freeradius_metric_alerts" {
 
     data {
       ref_id         = "B"
-      datasource_uid = data.grafana_data_source.prometheus.uid
+      datasource_uid = var.prometheus_uid
 
       relative_time_range {
         from = 300
@@ -80,7 +80,7 @@ resource "grafana_rule_group" "freeradius_metric_alerts" {
 
     data {
       ref_id         = "A"
-      datasource_uid = data.grafana_data_source.prometheus.uid
+      datasource_uid = var.prometheus_uid
 
       relative_time_range {
         from = 300
@@ -118,7 +118,7 @@ resource "grafana_rule_group" "freeradius_metric_alerts" {
 
     data {
       ref_id         = "A"
-      datasource_uid = data.grafana_data_source.prometheus.uid
+      datasource_uid = var.prometheus_uid
 
       relative_time_range {
         from = 300

@@ -15,16 +15,14 @@ variable "project_name" {
   default     = "freeradius-lab"
 }
 
-variable "prometheus_data_source_name" {
-  description = "Name of the Prometheus/Mimir data source in Grafana Cloud (e.g. grafanacloud-<stack>-prom)"
+variable "prometheus_uid" {
+  description = "UID of the Prometheus/Mimir data source in Grafana Cloud"
   type        = string
-  default     = "grafanacloud-freeradiuslab-prom"
 }
 
-variable "loki_data_source_name" {
-  description = "Name of the Loki data source in Grafana Cloud (e.g. grafanacloud-<stack>-logs)"
+variable "loki_uid" {
+  description = "UID of the Loki data source in Grafana Cloud"
   type        = string
-  default     = "grafanacloud-freeradiuslab-logs"
 }
 
 variable "environment" {

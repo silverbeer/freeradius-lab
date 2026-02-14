@@ -47,11 +47,15 @@ jobs:
         run: |
           terraform plan \
             -var="grafana_url=${{ secrets.GRAFANA_URL }}" \
-            -var="grafana_sa_token=${{ secrets.GRAFANA_SA_TOKEN }}"
+            -var="grafana_sa_token=${{ secrets.GRAFANA_SA_TOKEN }}" \
+            -var="prometheus_uid=${{ secrets.GRAFANA_PROMETHEUS_UID }}" \
+            -var="loki_uid=${{ secrets.GRAFANA_LOKI_UID }}"
 
       - name: Terraform apply
         working-directory: terraform/grafana
         run: |
           terraform apply -auto-approve \
             -var="grafana_url=${{ secrets.GRAFANA_URL }}" \
-            -var="grafana_sa_token=${{ secrets.GRAFANA_SA_TOKEN }}"
+            -var="grafana_sa_token=${{ secrets.GRAFANA_SA_TOKEN }}" \
+            -var="prometheus_uid=${{ secrets.GRAFANA_PROMETHEUS_UID }}" \
+            -var="loki_uid=${{ secrets.GRAFANA_LOKI_UID }}"
