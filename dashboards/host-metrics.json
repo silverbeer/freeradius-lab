@@ -1,0 +1,192 @@
+{
+  "title": "Host Metrics",
+  "uid": "host-metrics",
+  "tags": ["freeradius", "host"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "CPU Usage by Mode",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "host_cpu_usage_user",
+          "legendFormat": "user",
+          "refId": "A"
+        },
+        {
+          "expr": "host_cpu_usage_system",
+          "legendFormat": "system",
+          "refId": "B"
+        },
+        {
+          "expr": "host_cpu_usage_idle",
+          "legendFormat": "idle",
+          "refId": "C"
+        },
+        {
+          "expr": "host_cpu_usage_iowait",
+          "legendFormat": "iowait",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "stacking": { "mode": "normal" }
+          }
+        }
+      }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "host_memory_total_bytes",
+          "legendFormat": "Total",
+          "refId": "A"
+        },
+        {
+          "expr": "host_memory_available_bytes",
+          "legendFormat": "Available",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Disk I/O",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "rate(host_disk_read_bytes_total[5m])",
+          "legendFormat": "Read bytes/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(host_disk_written_bytes_total[5m])",
+          "legendFormat": "Write bytes/sec",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Filesystem Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "host_filesystem_free_bytes",
+          "legendFormat": "Free {{mountpoint}}",
+          "refId": "A"
+        },
+        {
+          "expr": "host_filesystem_total_bytes",
+          "legendFormat": "Total {{mountpoint}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Network Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "rate(host_network_receive_bytes_total[5m])",
+          "legendFormat": "RX bytes/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(host_network_transmit_bytes_total[5m])",
+          "legendFormat": "TX bytes/sec",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Load Averages",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "host_load1",
+          "legendFormat": "load1",
+          "refId": "A"
+        },
+        {
+          "expr": "host_load5",
+          "legendFormat": "load5",
+          "refId": "B"
+        },
+        {
+          "expr": "host_load15",
+          "legendFormat": "load15",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39
+}

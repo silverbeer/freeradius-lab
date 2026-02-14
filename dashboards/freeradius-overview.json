@@ -1,0 +1,228 @@
+{
+  "title": "FreeRADIUS Overview",
+  "uid": "freeradius-overview",
+  "tags": ["freeradius", "radius"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Auth Requests / sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(freeradius_radius_auth_total[5m]))",
+          "legendFormat": "Total auth/sec",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Auth Success Rate",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(freeradius_radius_auth_total{result=\"accept\"}[5m])) / sum(rate(freeradius_radius_auth_total[5m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 0.8, "color": "yellow" },
+              { "value": 0.95, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Status-Server: Access Requests",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "freeradius_status_access_requests_total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "title": "Status-Server: Accepts",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 3, "x": 21, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "freeradius_status_access_accepts_total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        }
+      }
+    },
+    {
+      "title": "Status-Server: Rejects",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "freeradius_status_access_rejects_total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        }
+      }
+    },
+    {
+      "title": "Accept vs Reject",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(freeradius_radius_auth_total{result=\"accept\"}[5m]))",
+          "legendFormat": "Accept",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(freeradius_radius_auth_total{result=\"reject\"}[5m]))",
+          "legendFormat": "Reject",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "stacking": { "mode": "normal" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Accept" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Reject" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Accounting Events / sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(freeradius_radius_acct_total[5m]))",
+          "legendFormat": "Acct events/sec",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Error Counters",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "freeradius_status_auth_malformed_total",
+          "legendFormat": "Malformed",
+          "refId": "A"
+        },
+        {
+          "expr": "freeradius_status_auth_invalid_total",
+          "legendFormat": "Invalid",
+          "refId": "B"
+        },
+        {
+          "expr": "freeradius_status_auth_dropped_total",
+          "legendFormat": "Dropped",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "title": "Requests by NAS",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${prometheus_uid}" },
+      "targets": [
+        {
+          "expr": "sum by (nas_id) (rate(freeradius_radius_auth_total[5m]))",
+          "legendFormat": "{{nas_id}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "stacking": { "mode": "normal" }
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39
+}
