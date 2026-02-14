@@ -259,8 +259,7 @@ Dashboards and alerts are managed in a separate Terraform root module (`terrafor
 |------|-------------|
 | `terraform/grafana/provider.tf` | Grafana provider + required_version |
 | `terraform/grafana/backend.tf` | S3 backend, key = `freeradius-lab/grafana.tfstate` |
-| `terraform/grafana/variables.tf` | grafana_url, grafana_sa_token, data source names |
-| `terraform/grafana/data.tf` | Data source lookups (Prometheus, Loki) |
+| `terraform/grafana/variables.tf` | grafana_url, grafana_sa_token, data source UIDs |
 | `terraform/grafana/folder.tf` | `grafana_folder` "FreeRADIUS Lab" |
 | `terraform/grafana/dashboards.tf` | 3x `grafana_dashboard` resources |
 | `terraform/grafana/alerts_metric.tf` | PromQL alert rules |

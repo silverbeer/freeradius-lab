@@ -99,11 +99,13 @@ radtest testuser testpass localhost 0 testing123   # Test auth
 - `rpm/` — RPM spec file and build helper script
 - `docker/` — Multi-stage Dockerfile for build + runtime, docker-compose
 - `terraform/` — AWS infrastructure (VPC, EC2, security groups, optional RDS)
+- `terraform/grafana/` — Grafana Cloud dashboards and alerts (separate Terraform root module)
+- `dashboards/` — Grafana dashboard JSON models (used by terraform/grafana via templatefile)
 - `ansible/` — Ansible roles (freeradius, vector, smoke_test), playbooks, and config
 - `cli/` — Custom CLI tools (radcli) for FreeRADIUS operations
 - `scripts/` — Helper scripts (set-gh-secrets.sh, verify-grafana-secrets.sh)
 - `tests/` — Python test suite (pytest + pyrad) with `pyproject.toml`
-- `.github/workflows/` — CI pipelines: `build-rpm.yml`, `deploy-test.yml`, `destroy.yml`, `docker-image.yml`
+- `.github/workflows/` — CI pipelines: `build-rpm.yml`, `deploy-test.yml`, `destroy.yml`, `docker-image.yml`, `grafana-dashboards.yml`
 
 ## Design Decisions
 
@@ -115,6 +117,7 @@ ADRs are tracked in `docs/DECISIONS.md`. Key decisions:
 - Ansible over SSM replaces shell scripts (ADR-005)
 - Vector + Grafana Cloud for observability (ADR-006)
 - ghcr.io for container images (ADR-007)
+- Grafana dashboards & alerts as IaC (ADR-008)
 
 ## RADIUS Protocol Basics
 

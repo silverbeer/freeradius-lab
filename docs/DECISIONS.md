@@ -166,7 +166,7 @@ Defer Vector agent and Grafana Cloud shipping to Phase 2.
 **Rationale:**
 - **Separate root module** — Dashboards persist across AWS `terraform destroy` cycles. The `terraform/` module manages ephemeral AWS infra; `terraform/grafana/` manages persistent Grafana Cloud resources. Same S3 backend, different state key.
 - **Terraform over clickops** — Version-controlled, reproducible, diffable. Follows existing repo patterns.
-- **Data sources looked up, not created** — Grafana Cloud pre-provisions Prometheus and Loki data sources; creating them in Terraform would conflict.
+- **Data source UIDs as variables** — Grafana Cloud pre-provisions data sources; their UIDs are passed as Terraform variables (`prometheus_uid`, `loki_uid`) via GitHub secrets, avoiding permission issues with `datasources:read`.
 - **`templatefile()` for dashboard JSON** — Data source UIDs vary per Grafana Cloud stack. Using placeholders (`${prometheus_uid}`, `${loki_uid}`) avoids hardcoding.
 - **Separate SA token** — The existing `GRAFANA_API_KEY` is scoped to `metrics:write` + `logs:write` for Vector. Dashboard/alert management requires a Service Account token with Editor role — different permission scope.
 - **Standalone CI workflow** — Decoupled from the ephemeral AWS deploy/test/destroy cycle. Triggers on changes to `terraform/grafana/` or `dashboards/`.
@@ -176,4 +176,4 @@ Defer Vector agent and Grafana Cloud shipping to Phase 2.
 - Dashboard JSON files are verbose but can be exported from the UI for iterative development
 - Alert rules reference metric/label names that must match the Vector pipeline configuration
 
-**Implementation:** `terraform/grafana/` with provider, backend, data sources, folder, dashboards, and alert rules. Dashboard JSON in `dashboards/`. CI workflow in `.github/workflows/grafana-dashboards.yml`.
+**Implementation:** `terraform/grafana/` with provider, backend, folder, dashboards, and alert rules. Dashboard JSON in `dashboards/`. CI workflow in `.github/workflows/grafana-dashboards.yml`.
