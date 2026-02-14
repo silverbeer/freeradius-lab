@@ -1,5 +1,4 @@
 resource "grafana_rule_group" "freeradius_metric_alerts" {
-  org_id           = 1
   name             = "FreeRADIUS Metric Alerts"
   folder_uid       = grafana_folder.freeradius.uid
   interval_seconds = 60

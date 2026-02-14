@@ -1,5 +1,4 @@
 resource "grafana_rule_group" "freeradius_log_alerts" {
-  org_id           = 1
   name             = "FreeRADIUS Log Alerts"
   folder_uid       = grafana_folder.freeradius.uid
   interval_seconds = 60
