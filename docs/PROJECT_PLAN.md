@@ -247,28 +247,28 @@ workflow_dispatch
 
 ### Tasks
 
-- [ ] Set up test project:
+- [x] Set up test project:
   - `tests/pyproject.toml` — dependencies: `pyrad`, `pytest`, `pytest-asyncio`
   - Use `uv` for dependency management
-- [ ] Implement test client using `pyrad`:
+- [x] Implement test client using `pyrad`:
   - Create a RADIUS client that can send Access-Request and Accounting-Request packets
   - Helper functions for building packets with run-tracker AVPs
-- [ ] Write test cases:
+- [x] Write test cases:
   - **`test_auth.py`** — Authentication flows:
-    - [ ] Valid user authenticates successfully (Access-Accept)
-    - [ ] Invalid password returns Access-Reject
-    - [ ] Unknown user returns Access-Reject
-    - [ ] Verify response attributes (e.g., Session-Timeout)
+    - [x] Valid user authenticates successfully (Access-Accept)
+    - [x] Invalid password returns Access-Reject
+    - [x] Unknown user returns Access-Reject
+    - [x] Verify response attributes (e.g., Session-Timeout)
   - **`test_accounting.py`** — Accounting session lifecycle:
-    - [ ] Accounting-Start creates a session
-    - [ ] Accounting-Stop closes a session with duration
-    - [ ] Interim-Update works mid-session
+    - [x] Accounting-Start accepted
+    - [x] Accounting-Stop accepted with duration
+    - [x] Interim-Update accepted
     - [ ] Verify session data persisted to SQL backend
   - **`test_authorization.py`** — Authorization attributes:
-    - [ ] User gets correct group-based attributes
-    - [ ] Rate limiting attributes returned
+    - [x] User gets correct session timeout and reply message
+    - [x] Elite runner gets framed protocol attribute
     - [ ] Custom VSAs (if implemented) returned correctly
-- [ ] ~~Add `scripts/smoke_test.sh`~~ — replaced by `ansible/roles/smoke_test/` (done in Phase 4)
+- [x] ~~Add `scripts/smoke_test.sh`~~ — replaced by `ansible/roles/smoke_test/` (done in Phase 4)
 
 ### Run Tracker Data Model
 
@@ -299,7 +299,7 @@ Map running concepts to RADIUS attributes:
 ### Tasks
 
 - [ ] Update `README.md` with final architecture and quick start
-- [ ] Complete `docs/DECISIONS.md` with all ADRs
+- [x] Complete `docs/DECISIONS.md` with all ADRs (7 ADRs documented)
 - [ ] Review and clean up all code:
   - Consistent formatting, comments, docstrings
   - Remove any hardcoded values or secrets
@@ -307,7 +307,7 @@ Map running concepts to RADIUS attributes:
 - [ ] Optional enhancements if time permits:
   - [ ] Add RDS PostgreSQL backend (replace SQLite)
   - [ ] Custom FreeRADIUS dictionary for run tracker VSAs
-  - [ ] Grafana dashboard for RADIUS metrics (ties into observability story)
+  - [x] Grafana Cloud observability (Vector + Mimir + Loki — done in Observability Plan)
   - [ ] `Makefile` or `just` commands for common operations
 - [ ] Prepare talking points:
   - What design decisions would change at production scale?
