@@ -85,6 +85,30 @@ else
   ERRORS=1
 fi
 
+# --- Test Grafana SA token (optional, for dashboard/alert management) ---
+if [ -n "${GRAFANA_URL:-}" ] && [ -n "${GRAFANA_SA_TOKEN:-}" ]; then
+  echo ""
+  echo "--- Grafana Dashboard Management ---"
+  echo "Grafana URL     : $GRAFANA_URL"
+  echo "SA Token        : ${GRAFANA_SA_TOKEN:0:10}..."
+  echo ""
+  echo -n "Testing Grafana SA token (${GRAFANA_URL}/api/org)... "
+  HTTP_CODE=$(curl -s -o /tmp/grafana-sa-test.txt -w '%{http_code}' \
+    -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+    "${GRAFANA_URL}/api/org" 2>&1)
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "OK (HTTP $HTTP_CODE — Editor access confirmed)"
+  else
+    echo "FAIL (HTTP $HTTP_CODE)"
+    cat /tmp/grafana-sa-test.txt 2>/dev/null
+    echo ""
+    if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+      echo "  -> SA token is invalid or lacks Editor role"
+    fi
+    ERRORS=1
+  fi
+fi
+
 # --- Summary ---
 echo ""
 if [ "$ERRORS" -eq 0 ]; then

@@ -8,6 +8,10 @@ terraform/bootstrap/.terraform/
 terraform/bootstrap/*.tfstate
 terraform/bootstrap/*.tfstate.backup
 terraform/bootstrap/.terraform.lock.hcl
+terraform/grafana/.terraform/
+terraform/grafana/*.tfstate
+terraform/grafana/*.tfstate.backup
+terraform/grafana/.terraform.lock.hcl
 
 # RPM build artifacts
 rpm/BUILD/

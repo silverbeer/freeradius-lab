@@ -151,3 +151,29 @@ Defer Vector agent and Grafana Cloud shipping to Phase 2.
 - ghcr.io packages default to private; must be manually set to public after first push
 
 **Implementation:** `.github/workflows/docker-image.yml` builds on push to main, tags with short SHA + `latest`, and pushes to `ghcr.io/silverbeer/freeradius-lab`.
+
+---
+
+## ADR-008: Grafana Dashboards & Alerts as IaC
+
+**Status:** Accepted
+**Date:** 2026-02-13
+
+**Context:** The observability pipeline (Phases 1-3, 5) ships metrics to Grafana Cloud Mimir and logs to Loki, but there are no dashboards or alert rules. Phase 4 of the observability plan requires implementing these. The dashboards and alerts must survive AWS infrastructure teardown (`terraform destroy`) since the EC2 environment is ephemeral.
+
+**Decision:** Manage Grafana dashboards and alert rules as Terraform resources in a separate root module (`terraform/grafana/`) using the official `grafana/grafana` provider, with a standalone CI workflow.
+
+**Rationale:**
+- **Separate root module** — Dashboards persist across AWS `terraform destroy` cycles. The `terraform/` module manages ephemeral AWS infra; `terraform/grafana/` manages persistent Grafana Cloud resources. Same S3 backend, different state key.
+- **Terraform over clickops** — Version-controlled, reproducible, diffable. Follows existing repo patterns.
+- **Data sources looked up, not created** — Grafana Cloud pre-provisions Prometheus and Loki data sources; creating them in Terraform would conflict.
+- **`templatefile()` for dashboard JSON** — Data source UIDs vary per Grafana Cloud stack. Using placeholders (`${prometheus_uid}`, `${loki_uid}`) avoids hardcoding.
+- **Separate SA token** — The existing `GRAFANA_API_KEY` is scoped to `metrics:write` + `logs:write` for Vector. Dashboard/alert management requires a Service Account token with Editor role — different permission scope.
+- **Standalone CI workflow** — Decoupled from the ephemeral AWS deploy/test/destroy cycle. Triggers on changes to `terraform/grafana/` or `dashboards/`.
+
+**Trade-offs:**
+- Requires a second Grafana Cloud credential (`GRAFANA_SA_TOKEN`) alongside the existing `GRAFANA_API_KEY`
+- Dashboard JSON files are verbose but can be exported from the UI for iterative development
+- Alert rules reference metric/label names that must match the Vector pipeline configuration
+
+**Implementation:** `terraform/grafana/` with provider, backend, data sources, folder, dashboards, and alert rules. Dashboard JSON in `dashboards/`. CI workflow in `.github/workflows/grafana-dashboards.yml`.

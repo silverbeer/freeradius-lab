@@ -1,0 +1,57 @@
+name: Grafana Dashboards & Alerts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/grafana/**"
+      - "dashboards/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  deploy:
+    name: Deploy Dashboards & Alerts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: terraform/grafana
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          terraform init \
+            -backend-config="bucket=freeradius-lab-tfstate-${ACCOUNT_ID}" \
+            -backend-config="dynamodb_table=freeradius-lab-tflock"
+
+      - name: Terraform plan
+        working-directory: terraform/grafana
+        run: |
+          terraform plan \
+            -var="grafana_url=${{ secrets.GRAFANA_URL }}" \
+            -var="grafana_sa_token=${{ secrets.GRAFANA_SA_TOKEN }}"
+
+      - name: Terraform apply
+        working-directory: terraform/grafana
+        run: |
+          terraform apply -auto-approve \
+            -var="grafana_url=${{ secrets.GRAFANA_URL }}" \
+            -var="grafana_sa_token=${{ secrets.GRAFANA_SA_TOKEN }}"

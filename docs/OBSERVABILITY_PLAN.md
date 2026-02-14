@@ -207,49 +207,70 @@ journalctl -u vector --no-pager -n 20         # no sink errors
 
 ---
 
-## Phase 4: Alerts
+## Phase 4: Dashboards & Alerts as IaC -- COMPLETE
 
-**Goal:** Define alerting rules for Grafana Cloud. Documented in repo for reproducibility.
+**Status:** Implemented (2026-02-13) — see ADR-008 in `docs/DECISIONS.md`.
 
-### Application Log-Level Alerts (Loki LogQL)
+**Goal:** Grafana dashboards and alert rules managed as Terraform IaC, deployed via standalone CI workflow.
 
-| Alert | Query | Condition | Severity |
-|-------|-------|-----------|----------|
-| Auth Failure Spike | `sum(count_over_time({source="linelog"} \| json \| result="reject" [5m])) > 10` | >10 rejects in 5 min | Warning |
-| Unknown NAS Client | `{source="radius_log"} \|= "unknown client"` | Any occurrence | Critical |
-| Config Reload Failure | `{source="journald"} \|= "Failed to reload" \|= "radiusd"` | Any occurrence | Critical |
-| Module Error | `{source="radius_log"} \|~ "Error\|ERROR" \|~ "rlm_"` | Any occurrence | Warning |
-| Duplicate Request Spike | `sum(count_over_time({source="radius_log"} \|= "Dropping duplicate request" [1m])) > 5` | >5 in 1 min | Warning |
-| Vector Pipeline Error | `{source="journald", unit="vector"} \|= "error"` | Any occurrence | Warning |
+### Implementation
 
-### Metric Alerts (PromQL on Mimir)
+Dashboards and alerts are managed in a separate Terraform root module (`terraform/grafana/`) using the `grafana/grafana` provider, with dashboard JSON in `dashboards/`. A standalone CI workflow (`.github/workflows/grafana-dashboards.yml`) deploys on push to `main`.
 
-| Alert | Expression | Severity |
-|-------|-----------|----------|
-| Auth Success Rate Low | `1 - (sum(rate(freeradius_radius_auth_total{result="reject"}[5m])) / sum(rate(freeradius_radius_auth_total[5m]))) < 0.8` | Warning |
-| Request Rate Zero | `sum(rate(freeradius_radius_auth_total[5m])) == 0 and sum(freeradius_status_access_requests_total) > 0` | Critical |
-| FreeRADIUS Down | `absent(freeradius_status_access_requests_total)` | Critical |
-| High CPU | `host_cpu_usage_idle < 10` | Warning |
-| Disk Space Low | `host_filesystem_free_bytes{mountpoint="/"} / host_filesystem_total_bytes{mountpoint="/"} < 0.1` | Critical |
-| Vector Stale | No data received for 5 minutes | Critical |
+### Dashboards (3)
 
-### System-Level Metrics (from Vector host_metrics)
+| Dashboard | Key Panels |
+|-----------|-----------|
+| FreeRADIUS Overview | Auth requests/sec, success rate gauge, accept vs reject (stacked), accounting events/sec, status-server counters, error counters, requests by NAS |
+| Host Metrics | CPU by mode, memory, disk I/O, filesystem usage, network throughput, load averages |
+| Logs Explorer | Log volume by source, auth failures table, error logs, raw log stream |
 
-| Category | Metrics | Why it matters |
-|----------|---------|----------------|
-| CPU | usage by mode (user, system, idle, iowait) | Crypto operations in EAP-TLS |
-| Memory | total, available, buffers | Module memory leaks |
-| Disk I/O | read/write bytes | Log write throughput |
-| Filesystem | free/total by mountpoint | `/var/log/radius/` filling up |
-| Network | rx/tx bytes | UDP traffic volume |
-| Load | load1, load5, load15 | Overall system pressure |
+### Alert Rules (11 rules in 3 groups)
 
-### Files to change
+**Metric Alerts** (evaluation interval 60s):
 
-| File | Change |
-|------|--------|
-| `docs/alerts.md` | **New** — full alert definitions with LogQL/PromQL queries |
-| `docs/DECISIONS.md` | Add ADR-006: Observability Stack — Vector + Grafana Cloud |
+| Rule | Expression | For | Severity |
+|------|-----------|-----|----------|
+| Auth Success Rate Low | `1 - (reject_rate / total_rate) < 0.8` | 5m | warning |
+| FreeRADIUS Down | `absent(freeradius_status_access_requests_total)` | 2m | critical |
+| Request Rate Zero | `sum(rate(freeradius_radius_auth_total[5m])) == 0` | 5m | critical |
+
+**Log Alerts** (evaluation interval 60s):
+
+| Rule | LogQL | Severity |
+|------|-------|----------|
+| Auth Failure Spike | `count rejects in 5m > 10` | warning |
+| Unknown NAS Client | `"unknown client" in radius_log` | critical |
+| Config Reload Failure | `"Failed to reload" + "radiusd" in journald` | critical |
+| Module Error | `Error/ERROR + rlm_ in radius_log` | warning |
+| Duplicate Request Spike | `"Dropping duplicate request" in 1m > 5` | warning |
+| Vector Pipeline Error | `"error" in vector journald` | warning |
+
+**Host Alerts** (evaluation interval 60s):
+
+| Rule | Expression | For | Severity |
+|------|-----------|-----|----------|
+| High CPU | `host_cpu_usage_idle < 10` | 5m | warning |
+| Disk Space Low | `free_bytes / total_bytes < 0.1` | 5m | critical |
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `terraform/grafana/provider.tf` | Grafana provider + required_version |
+| `terraform/grafana/backend.tf` | S3 backend, key = `freeradius-lab/grafana.tfstate` |
+| `terraform/grafana/variables.tf` | grafana_url, grafana_sa_token, data source names |
+| `terraform/grafana/data.tf` | Data source lookups (Prometheus, Loki) |
+| `terraform/grafana/folder.tf` | `grafana_folder` "FreeRADIUS Lab" |
+| `terraform/grafana/dashboards.tf` | 3x `grafana_dashboard` resources |
+| `terraform/grafana/alerts_metric.tf` | PromQL alert rules |
+| `terraform/grafana/alerts_log.tf` | LogQL alert rules |
+| `terraform/grafana/alerts_host.tf` | Host metric alert rules |
+| `terraform/grafana/outputs.tf` | Dashboard URLs, folder UID, alert group names |
+| `dashboards/freeradius-overview.json` | FreeRADIUS overview dashboard JSON |
+| `dashboards/host-metrics.json` | Host metrics dashboard JSON |
+| `dashboards/logs-explorer.json` | Logs explorer dashboard JSON |
+| `.github/workflows/grafana-dashboards.yml` | Standalone CI workflow |
 
 ---
 
@@ -299,7 +320,7 @@ Phase 2 (Vector agent → Grafana Cloud)          ✅ COMPLETE
   ↓
 Phase 3 (Health checks in smoke tests)          ✅ COMPLETE
   ↓
-Phase 4 (Alert definitions + ADR)               ⬜ NOT STARTED
+Phase 4 (Dashboards + Alerts as IaC)             ✅ COMPLETE
   ↓
 Phase 5 (CI wiring)                             ✅ COMPLETE
 ```
@@ -308,7 +329,7 @@ Each phase is independently valuable:
 - **After Phase 1:** `tail -f /var/log/radius/linelog.json | jq .` for live per-request debugging
 - **After Phase 2:** Data flows to Grafana Cloud — build dashboards, explore metrics and logs
 - **After Phase 3:** Automated health checks catch regressions in CI
-- **After Phase 4:** Alerting notifies you of problems when infrastructure is left running
+- **After Phase 4:** Dashboards visualize metrics/logs; alerts notify you of problems when infrastructure is left running
 - **After Phase 5:** Full pipeline wired end-to-end through CI
 
 ---
