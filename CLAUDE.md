@@ -16,18 +16,21 @@ The use case is a "Run Streak Session Tracker" that maps running sessions to RAD
 - **Infra:** Terraform-provisioned ephemeral AWS environment (VPC, EC2 for FreeRADIUS, optional RDS)
 - **CI/CD:** GitHub Actions pipelines for RPM build, deploy, test, and teardown
 - **Config management:** Ansible with `amazon.aws.aws_ssm` connection plugin (no SSH)
+- **Observability:** Vector agent on EC2 shipping metrics to Grafana Cloud Mimir and logs to Grafana Cloud Loki
+- **Container registry:** ghcr.io for Docker images (built via CI)
 - **Tests:** Python (pytest + pyrad) against a live RADIUS server, plus Ansible-driven smoke tests
 
 ## Key Technology Choices
 
 | Tool | Purpose |
 |------|---------|
-| Docker (AL2023-based) | RPM build environment and local testing |
+| Docker (AL2023-based) | RPM build environment and local runtime |
 | Terraform >= 1.5 | AWS infrastructure provisioning |
 | Python >= 3.11 + uv | Test suite dependency management |
 | pyrad | Python RADIUS client library for tests |
 | radtest / radclient | CLI RADIUS testing tools (bundled with FreeRADIUS) |
 | Ansible + amazon.aws | Configuration management via SSM (no SSH) |
+| Vector 0.43.x | Observability data pipeline (logs + metrics to Grafana Cloud) |
 
 ## Common Commands
 
@@ -37,6 +40,13 @@ The use case is a "Run Streak Session Tracker" that maps running sessions to RAD
 rpm/build.sh
 ```
 
+### Docker (local runtime)
+```bash
+docker compose build          # Build multi-stage image
+docker compose up -d           # Start FreeRADIUS container
+docker compose down            # Stop container
+```
+
 ### Terraform
 ```bash
 cd terraform
@@ -44,6 +54,14 @@ terraform init
 terraform plan
 terraform apply
 terraform destroy
+```
+
+### Ansible (local against EC2)
+```bash
+# Requires: OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES on macOS
+ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/deploy.yml \
+  -i ansible/inventory/ec2.yml \
+  -e rpm_bucket=<bucket> -e rpm_arch=x86_64
 ```
 
 ### Testing
@@ -66,15 +84,26 @@ radiusd -C          # Verify config syntax
 radtest testuser testpass localhost 0 testing123   # Test auth
 ```
 
+### Grafana Cloud Secrets
+```bash
+# Verify credentials have write access
+./scripts/verify-grafana-secrets.sh
+
+# Push secrets to GitHub repo
+./scripts/set-gh-secrets.sh
+```
+
 ## Repo Layout
 
-- `docs/` — Project plan, RADIUS learning notes, ADRs (architectural decision records)
+- `docs/` — Project plan, RADIUS learning notes, ADRs, observability docs
 - `rpm/` — RPM spec file and build helper script
-- `docker/` — Dockerfiles for build (AL2023) and local test environments
+- `docker/` — Multi-stage Dockerfile for build + runtime, docker-compose
 - `terraform/` — AWS infrastructure (VPC, EC2, security groups, optional RDS)
-- `ansible/` — Ansible roles (freeradius, smoke_test), playbooks, and config
+- `ansible/` — Ansible roles (freeradius, vector, smoke_test), playbooks, and config
+- `cli/` — Custom CLI tools (radcli) for FreeRADIUS operations
+- `scripts/` — Helper scripts (set-gh-secrets.sh, verify-grafana-secrets.sh)
 - `tests/` — Python test suite (pytest + pyrad) with `pyproject.toml`
-- `.github/workflows/` — CI pipelines: `build-rpm.yml`, `deploy-test.yml`, `destroy.yml`
+- `.github/workflows/` — CI pipelines: `build-rpm.yml`, `deploy-test.yml`, `destroy.yml`, `docker-image.yml`
 
 ## Design Decisions
 
@@ -84,6 +113,8 @@ ADRs are tracked in `docs/DECISIONS.md`. Key decisions:
 - SQLite first, PostgreSQL later (ADR-003)
 - RPM delivery to EC2 via S3 (ADR-004)
 - Ansible over SSM replaces shell scripts (ADR-005)
+- Vector + Grafana Cloud for observability (ADR-006)
+- ghcr.io for container images (ADR-007)
 
 ## RADIUS Protocol Basics
 

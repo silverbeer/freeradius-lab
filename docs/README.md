@@ -30,63 +30,80 @@ This exercises FreeRADIUS core features (SQL module, custom dictionaries, accoun
 └─────────────────────────────────────────────────────┘
 
 AWS Environment (ephemeral):
-┌─────────────────────────────────────┐
-│  VPC (10.0.0.0/16)                  │
-│  ┌────────────────┐  ┌───────────┐  │
-│  │ EC2 (AL2023)   │  │ RDS       │  │
-│  │ FreeRADIUS     │  │ PostgreSQL│  │
-│  │ (RPM install)  │  │ (accounting│ │
-│  │ UDP 1812/1813  │  │  & users) │  │
-│  └────────────────┘  └───────────┘  │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  VPC (10.0.0.0/16)                                  │
+│  ┌────────────────────────────┐                     │
+│  │ EC2 (AL2023)               │                     │
+│  │ FreeRADIUS (RPM install)   │                     │
+│  │ Vector → Grafana Cloud     │                     │
+│  │ UDP 1812/1813/18121        │                     │
+│  └────────────────────────────┘                     │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Repo Structure
 
 ```
 freeradius-lab/
-├── README.md
 ├── docs/
 │   ├── PROJECT_PLAN.md          # Phased implementation plan
 │   ├── RADIUS_NOTES.md          # Learning notes on RADIUS/AAA
 │   ├── DECISIONS.md             # ADRs / design decisions
 │   ├── OBSERVABILITY_PLAN.md    # Observability roadmap (Vector + Grafana Cloud)
-│   └── OBSERVABILITY.md         # Observability implementation reference
+│   ├── OBSERVABILITY.md         # Observability implementation reference
+│   └── DEPLOY_ISSUES.md         # Deploy pipeline issue tracker
 ├── rpm/
 │   ├── freeradius.spec          # RPM spec file
 │   └── build.sh                 # RPM build helper script
 ├── docker/
-│   ├── Dockerfile.build         # RPM build environment (AL2023-based)
-│   └── Dockerfile.test          # Local test environment
+│   └── Dockerfile               # Multi-stage: RPM build + runtime image
 ├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── vpc.tf
-│   ├── ec2.tf
-│   ├── rds.tf
-│   └── security_groups.tf
-├── ansible/                     # Optional: config management
-│   ├── playbook.yml
-│   └── roles/
-│       └── freeradius/
+│   ├── main.tf, vpc.tf, ec2.tf  # AWS infrastructure
+│   └── bootstrap/               # One-time S3/DynamoDB state backend setup
+├── ansible/
+│   ├── playbooks/               # deploy.yml, smoke_test.yml, deploy-docker.yml
+│   ├── roles/
+│   │   ├── freeradius/          # Install, configure, start FreeRADIUS
+│   │   ├── vector/              # Install, configure Vector → Grafana Cloud
+│   │   └── smoke_test/          # Health checks and validation
+│   └── inventory/               # EC2 (SSM) and Docker inventories
+├── cli/                         # Custom CLI tools (radcli)
 ├── scripts/
-│   ├── configure_radius.sh      # Post-deploy FreeRADIUS config
-│   ├── seed_test_data.sh        # Populate test users/NAS clients
-│   └── smoke_test.sh            # Quick validation
+│   ├── set-gh-secrets.sh        # Push .gh-secrets to GitHub repo secrets
+│   └── verify-grafana-secrets.sh # Verify Grafana Cloud credentials
 ├── tests/
-│   ├── conftest.py
 │   ├── test_auth.py             # Authentication flow tests
 │   ├── test_accounting.py       # Accounting session tests
 │   ├── test_authorization.py    # Authorization attribute tests
 │   └── pyproject.toml           # Test dependencies (pyrad, pytest)
-└── .github/
-    └── workflows/
-        ├── build-rpm.yml        # Phase 2: RPM build pipeline
-        ├── deploy-test.yml      # Phase 4: Full integration pipeline
-        └── destroy.yml          # Manual teardown workflow
+├── .gh-secrets.example          # Template for Grafana Cloud credentials
+├── docker-compose.yml           # Local FreeRADIUS runtime
+└── .github/workflows/
+    ├── build-rpm.yml            # RPM build pipeline
+    ├── deploy-test.yml          # Full integration pipeline (build → deploy → test)
+    ├── destroy.yml              # Manual teardown workflow
+    └── docker-image.yml         # Build and push Docker image to ghcr.io
 ```
 
 ## Quick Start
 
-_Coming soon — see [PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the phased approach._
+### Local (Docker)
+```bash
+docker compose up -d --build     # Build and start FreeRADIUS
+radtest testuser testpass localhost 0 testing123   # Test auth
+```
+
+### CI Pipeline
+1. Set up AWS OIDC role and Terraform state backend (see `terraform/bootstrap/`)
+2. Copy `.gh-secrets.example` to `.gh-secrets`, fill in Grafana Cloud credentials
+3. Run `./scripts/verify-grafana-secrets.sh` to verify credentials
+4. Run `./scripts/set-gh-secrets.sh` to push secrets to GitHub
+5. Trigger the **Deploy & Test** workflow from the Actions tab
+
+### Local Ansible (against EC2)
+```bash
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES   # macOS only
+ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/deploy.yml \
+  -i ansible/inventory/ec2.yml \
+  -e rpm_bucket=<your-bucket> -e rpm_arch=x86_64
+```

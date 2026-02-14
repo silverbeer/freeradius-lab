@@ -85,7 +85,9 @@ radiusd -C  # config syntax still valid
 
 ---
 
-## Phase 2: Vector Agent — Collection + Shipping to Grafana Cloud
+## Phase 2: Vector Agent — Collection + Shipping to Grafana Cloud -- COMPLETE
+
+**Status:** Implemented (2026-02-13)
 
 **Goal:** Install Vector, configure the pipeline, ship metrics to Mimir and logs to Loki.
 
@@ -137,11 +139,12 @@ ansible/roles/vector/
 Pass as Ansible extra vars (`-e`) from the GitHub Actions workflow. Secrets to configure in the repository:
 
 - `GRAFANA_PROMETHEUS_URL` — e.g., `https://prometheus-prod-XX-XX.grafana.net/api/prom/push`
+- `GRAFANA_PROMETHEUS_USER` — Prometheus/Mimir instance ID (numeric)
 - `GRAFANA_LOKI_URL` — e.g., `https://logs-prod-XX.grafana.net`
-- `GRAFANA_USER` — Grafana Cloud instance user ID
-- `GRAFANA_API_KEY` — Grafana Cloud API key
+- `GRAFANA_LOKI_USER` — Loki instance ID (numeric, different from Prometheus)
+- `GRAFANA_API_KEY` — Grafana Cloud Access Policy token with `metrics:write` and `logs:write` scopes
 
-Repository variable: `GRAFANA_CLOUD_ENABLED` ("true" / "false")
+See `.gh-secrets.example` for the template. Use `scripts/verify-grafana-secrets.sh` to test credentials and `scripts/set-gh-secrets.sh` to push them to GitHub.
 
 ### 2D. Files to change
 
@@ -163,7 +166,9 @@ journalctl -u vector --no-pager -n 20         # no sink errors
 
 ---
 
-## Phase 3: Health Checks
+## Phase 3: Health Checks -- COMPLETE
+
+**Status:** Implemented (2026-02-13)
 
 **Goal:** Comprehensive health checks wired into the existing smoke test role.
 
@@ -248,15 +253,17 @@ journalctl -u vector --no-pager -n 20         # no sink errors
 
 ---
 
-## Phase 5: CI Integration
+## Phase 5: CI Integration -- COMPLETE
+
+**Status:** Implemented (2026-02-13)
 
 **Goal:** Wire observability into the GitHub Actions pipeline.
 
 ### Changes
 
-- Add `enable_observability` boolean workflow input (default: false)
-- Pass Grafana Cloud secrets to the Ansible deploy step when enabled
-- Pass `grafana_cloud_enabled` to the smoke test step for conditional Vector checks
+- Added `enable_observability` boolean workflow input (default: false)
+- Grafana Cloud secrets passed to the Ansible deploy step when enabled
+- Separate Prometheus and Loki user IDs (they differ in Grafana Cloud)
 
 ### Files to change
 
@@ -286,15 +293,15 @@ journalctl -u vector --no-pager -n 20         # no sink errors
 ## Implementation Order
 
 ```
-Phase 1 (FreeRADIUS linelog + status_server)
+Phase 1 (FreeRADIUS linelog + status_server)    ✅ COMPLETE
   ↓
-Phase 2 (Vector agent → Grafana Cloud)  [needs Phase 1 logs to exist]
+Phase 2 (Vector agent → Grafana Cloud)          ✅ COMPLETE
   ↓
-Phase 3 (Health checks in smoke tests)  [needs Phases 1-2 for new checks]
+Phase 3 (Health checks in smoke tests)          ✅ COMPLETE
   ↓
-Phase 4 (Alert definitions + ADR)       [needs Phase 2 data flowing]
+Phase 4 (Alert definitions + ADR)               ⬜ NOT STARTED
   ↓
-Phase 5 (CI wiring)                     [needs Phases 2-3]
+Phase 5 (CI wiring)                             ✅ COMPLETE
 ```
 
 Each phase is independently valuable:
@@ -318,4 +325,5 @@ Each phase is independently valuable:
 | `ansible/roles/vector/tasks/service.yml` | 2 |
 | `ansible/roles/vector/handlers/main.yml` | 2 |
 | `ansible/roles/vector/templates/vector.yaml.j2` | 2 |
+| `ansible/roles/vector/templates/status_poll.sh.j2` | 2 |
 | `docs/alerts.md` | 4 |
